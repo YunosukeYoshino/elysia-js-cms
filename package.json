@@ -26,15 +26,16 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@elysiajs/cors": "^0.8.0",
-    "@elysiajs/files": "^0.8.0",
-    "@elysiajs/jwt": "^0.8.0",
-    "@elysiajs/swagger": "^0.8.0",
+    "@elysiajs/cors": "^0.7.2",
+    "@elysiajs/jwt": "^0.7.0",
+    "@elysiajs/swagger": "^0.7.3",
+    "@elysiajs/html": "^0.7.3",
     "@prisma/client": "^5.9.0",
-    "elysia": "^0.8.17",
+    "elysia": "^0.7.30",
     "mime-types": "^2.1.35",
     "sharp": "^0.33.2",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "formidable": "^3.5.1"
   },
   "devDependencies": {
     "@biomejs/biome": "1.5.3",
