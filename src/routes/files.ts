@@ -1,5 +1,4 @@
 import { Elysia, t } from 'elysia';
-import { files } from '@elysiajs/files';
 import { authorize } from '../middlewares/auth';
 import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,6 +6,8 @@ import { mkdir, unlink } from 'fs/promises';
 import { join, extname } from 'path';
 import mime from 'mime-types';
 import sharp from 'sharp';
+import { formidable } from 'formidable';
+import { createReadStream, writeFileSync } from 'fs';
 
 const prisma = new PrismaClient();
 
@@ -23,50 +24,65 @@ try {
   console.error('Error creating upload directories:', error);
 }
 
+// ファイルアップロード処理のヘルパー関数
+async function handleFileUpload(req) {
+  return new Promise((resolve, reject) => {
+    const form = formidable({
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      uploadDir: UPLOAD_DIR,
+      filename: (name, ext, part, form) => {
+        const uniqueId = uuidv4();
+        const extension = extname(part.originalFilename || 'file');
+        return `${uniqueId}${extension}`;
+      },
+      keepExtensions: true
+    });
+
+    form.parse(req, (err, fields, files) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve({ fields, files });
+    });
+  });
+}
+
 export const filesRouter = new Elysia({ prefix: '/files' })
   // Swagger用のタグを定義
   .meta({
     tags: ['files']
   })
-  // ファイルアップロードプラグインを使用
-  .use(
-    files({
-      limit: '10mb' // アップロードサイズ制限
-    })
-  )
   // 認証ミドルウェアを使用
   .use(authorize)
   // ファイルをアップロード
   .post(
     '/upload',
-    async ({ body, set, user }) => {
+    async ({ request, set, user }) => {
       try {
         // 認証済みユーザーのIDを取得
-        const userId = user?.id; // Assuming ctx.user is populated by your auth middleware
+        const userId = user?.id;
         
         if (!userId) {
           set.status = 401;
           return { success: false, message: 'Unauthorized' };
         }
 
-        // ファイルが存在するか確認
-        if (!body.file) {
+        // formidableを使ってファイルをパース
+        const { files } = await handleFileUpload(request);
+        const uploadedFile = Object.values(files)[0]?.[0];
+        
+        if (!uploadedFile) {
           set.status = 400;
           return { success: false, message: 'No file uploaded' };
         }
 
-        const file = body.file;
-        const originalName = file.name;
-        const fileExt = extname(originalName);
+        const originalName = uploadedFile.originalFilename || 'untitled';
+        const fileName = uploadedFile.newFilename;
+        const fileExt = extname(fileName);
         const mimeType = mime.lookup(fileExt) || 'application/octet-stream';
-        
-        // ユニークなファイル名を生成
-        const uniqueId = uuidv4();
-        const fileName = `${uniqueId}${fileExt}`;
-        const filePath = join(UPLOAD_DIR, fileName);
-        
-        // ファイルをディスクに保存
-        await Bun.write(filePath, file);
+        const filePath = uploadedFile.filepath;
+        const fileSize = uploadedFile.size;
         
         let thumbnailPath = null;
         
@@ -89,7 +105,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
             mimeType,
             filePath: `/files/${fileName}`,  // URLパスとして保存
             thumbnailPath,
-            fileSize: file.size,
+            fileSize,
             userId
           }
         });
@@ -105,10 +121,6 @@ export const filesRouter = new Elysia({ prefix: '/files' })
       }
     },
     {
-      body: t.Object({
-        file: t.File(),
-        description: t.Optional(t.String())
-      }),
       detail: {
         tags: ['files'],
         summary: 'ファイルをアップロードする',
@@ -135,7 +147,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
         }
         
         // ファイルを読み込んで返す
-        const file = Bun.file(filePath);
+        const file = createReadStream(filePath);
         set.headers['Content-Type'] = fileInfo.mimeType;
         return file;
       } catch (error) {
@@ -174,7 +186,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
         }
         
         // サムネイルを読み込んで返す
-        const file = Bun.file(thumbPath);
+        const file = createReadStream(thumbPath);
         set.headers['Content-Type'] = fileInfo.mimeType;
         return file;
       } catch (error) {
