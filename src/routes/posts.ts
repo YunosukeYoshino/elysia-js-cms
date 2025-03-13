@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware, authenticated } from '../middlewares/auth';
+import { Prisma } from '@prisma/client';
 
 // 投稿関連のルーティング定義
 export const postsRouter = new Elysia({ prefix: '/posts' })
@@ -11,7 +12,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
     async ({ query }) => {
       const { published, authorId, categoryId, take = 10, skip = 0 } = query;
       
-      const whereClause: any = {};
+      const whereClause: Prisma.PostWhereInput = {};
       
       // 公開状態でフィルタリング
       if (published !== undefined) {
