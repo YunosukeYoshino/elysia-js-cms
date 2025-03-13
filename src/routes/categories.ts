@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware, authenticated, isAdmin } from '../middlewares/auth';
+import { Prisma } from '@prisma/client';
 
 // カテゴリ関連のルーティング定義
 export const categoriesRouter = new Elysia({ prefix: '/categories' })
@@ -225,7 +226,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         return { error: 'カテゴリが見つかりません' };
       }
 
-      const whereClause: any = {
+      const whereClause: Prisma.PostWhereInput = {
         categories: {
           some: {
             categoryId: parseInt(id),
