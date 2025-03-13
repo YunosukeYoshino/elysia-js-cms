@@ -19,13 +19,19 @@
   "license": "MIT",
   "dependencies": {
     "@elysiajs/cors": "^0.8.0",
+    "@elysiajs/files": "^0.8.0",
     "@elysiajs/jwt": "^0.8.0",
     "@elysiajs/swagger": "^0.8.0",
     "@prisma/client": "^5.9.0",
-    "elysia": "^0.8.17"
+    "elysia": "^0.8.17",
+    "mime-types": "^2.1.35",
+    "sharp": "^0.33.2",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/mime-types": "^2.1.4",
     "@types/node": "^20.11.14",
+    "@types/uuid": "^9.0.8",
     "bun-types": "^1.0.25",
     "prisma": "^5.9.0",
     "typescript": "^5.3.3"
