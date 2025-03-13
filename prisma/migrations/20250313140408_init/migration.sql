@@ -41,10 +41,8 @@ CREATE TABLE "CategoryOnPost" (
     CONSTRAINT "CategoryOnPost_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
-CREATE TABLE "new_File" (
+-- CreateTable
+CREATE TABLE "File" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "fileName" TEXT NOT NULL,
     "originalName" TEXT NOT NULL,
@@ -57,11 +55,6 @@ CREATE TABLE "new_File" (
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "File_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_File" ("createdAt", "fileName", "filePath", "fileSize", "id", "mimeType", "originalName", "thumbnailPath", "updatedAt", "userId") SELECT "createdAt", "fileName", "filePath", "fileSize", "id", "mimeType", "originalName", "thumbnailPath", "updatedAt", "userId" FROM "File";
-DROP TABLE "File";
-ALTER TABLE "new_File" RENAME TO "File";
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
