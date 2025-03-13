@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors';
 import { authRouter } from './routes/auth';
 import { postsRouter } from './routes/posts';
 import { categoriesRouter } from './routes/categories';
+import { filesRouter } from './routes/files';
 
 const app = new Elysia()
   .use(
@@ -12,12 +13,13 @@ const app = new Elysia()
         info: {
           title: 'ElysiaJS CMS API',
           version: '1.0.0',
-          description: '軽量CMSのためのRESTful API',
+          description: '軽重CMSのためのRESTful API',
         },
         tags: [
           { name: 'auth', description: '認証関連のエンドポイント' },
           { name: 'posts', description: '投稿管理エンドポイント' },
           { name: 'categories', description: 'カテゴリ管理エンドポイント' },
+          { name: 'files', description: 'ファイル管理エンドポイント' },
         ],
       },
     })
@@ -29,6 +31,7 @@ const app = new Elysia()
       .use(authRouter)
       .use(postsRouter)
       .use(categoriesRouter)
+      .use(filesRouter)
   )
   .listen(process.env.PORT || 3000);
 
