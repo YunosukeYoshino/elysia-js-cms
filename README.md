@@ -1,6 +1,6 @@
-# ElysiaJS CMS Demo
+# ElysiaJS CMS
 
-軽量な CMS API の ElysiaJS 実装デモです。Bun ランタイムと Prisma ORM を使用しています。
+軽量な CMS API の ElysiaJS 実装です。Bun ランタイムと Prisma ORM を使用しています。
 
 ## 機能
 
@@ -67,6 +67,32 @@ Swagger UI は http://localhost:3000/swagger で確認できます。
 - `GET /api/files` - ファイル一覧を取得
 - `GET /api/files/:id` - 特定のファイル情報を取得
 - `DELETE /api/files/:id` - ファイルを削除
+
+## シーケンス図
+
+以下は主要なAPIの処理フローを示すシーケンス図です。
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Database
+
+    Client->>Server: POST /api/auth/login
+    Server->>Database: ユーザー認証
+    Database-->>Server: 認証結果
+    Server-->>Client: JWTトークン
+
+    Client->>Server: GET /api/posts
+    Server->>Database: 投稿データ取得
+    Database-->>Server: 投稿データ
+    Server-->>Client: 投稿一覧
+
+    Client->>Server: POST /api/posts
+    Server->>Database: 新規投稿保存
+    Database-->>Server: 保存結果
+    Server-->>Client: 投稿作成完了
+```
 
 ## テストとCI/CD
 
@@ -153,6 +179,3 @@ jobs:
 - [Sharp](https://sharp.pixelplumbing.com/) - 画像処理ライブラリ
 - [Biome](https://biomejs.dev/) - リンター・フォーマッター
 
-## ライセンス
-
-MIT
