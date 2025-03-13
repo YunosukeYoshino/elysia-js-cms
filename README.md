@@ -7,6 +7,7 @@
 - コンテンツの作成、読み取り、更新、削除（CRUD）
 - ユーザー認証（JWT）
 - コンテンツタイプの管理
+- ファイルアップロード機能（画像サムネイル生成も対応）
 - API ドキュメント（Swagger UI）
 - データベース（SQLite）
 
@@ -46,21 +47,34 @@ Swagger UI は http://localhost:3000/swagger で確認できます。
 
 ## API エンドポイント
 
+### コンテンツ管理
+
 - `GET /api/posts` - すべての投稿を取得
 - `GET /api/posts/:id` - IDで投稿を取得
 - `POST /api/posts` - 新しい投稿を作成
 - `PUT /api/posts/:id` - 投稿を更新
 - `DELETE /api/posts/:id` - 投稿を削除
+
+### 認証
+
 - `POST /api/auth/login` - ログイン（JWT トークンを取得）
 - `POST /api/auth/register` - 新規ユーザー登録
 
-## 技術スタック
+### ファイル管理
+
+- `POST /api/files/upload` - ファイルをアップロード
+- `GET /api/files` - ファイル一覧を取得
+- `GET /api/files/:id` - 特定のファイル情報を取得
+- `DELETE /api/files/:id` - ファイルを削除
+
+## テクノロジースタック
 
 - [ElysiaJS](https://elysiajs.com/) - 高速かつ型安全な Web フレームワーク
 - [Bun](https://bun.sh/) - JavaScript/TypeScript ランタイム
 - [Prisma](https://www.prisma.io/) - 次世代 ORM
 - [JWT](https://jwt.io/) - JSON Web Token 認証
 - [SQLite](https://www.sqlite.org/) - 軽量データベース
+- [Sharp](https://sharp.pixelplumbing.com/) - 画像処理ライブラリ
 
 ## ライセンス
 

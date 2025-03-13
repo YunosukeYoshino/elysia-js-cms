@@ -19,6 +19,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   posts     Post[]
+  files     File[]   // ユーザーがアップロードしたファイルの関連付け
 }
 
 model Post {
@@ -50,4 +51,19 @@ model CategoryOnPost {
   assignedAt DateTime @default(now())
 
   @@id([postId, categoryId])
+}
+
+// ファイル管理用のモデル
+model File {
+  id            Int      @id @default(autoincrement())
+  fileName      String   // サーバー上でのファイル名 (UUID)
+  originalName  String   // アップロード時のオリジナルファイル名
+  mimeType      String   // ファイルのMIMEタイプ
+  filePath      String   // サーバー上でのファイルパス
+  thumbnailPath String?  // サムネイルパス（画像の場合）
+  fileSize      Int      // ファイルサイズ（バイト単位）
+  userId        Int      // アップロードしたユーザーのID
+  user          User     @relation(fields: [userId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

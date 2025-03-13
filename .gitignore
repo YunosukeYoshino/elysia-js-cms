@@ -30,3 +30,6 @@ prisma/.env
 
 # Bun
 .bun
+
+# Uploaded files
+uploads/
