@@ -31,9 +31,13 @@ const app = new Elysia()
   )
   .group('/api', (app) =>
     app.use(authRouter).use(postsRouter).use(categoriesRouter).use(filesRouter),
-  )
-  .listen(process.env.PORT || 3000);
+  );
 
-console.log(`🦊 ElysiaJS CMS APIサーバー起動中: ${app.server?.hostname}:${app.server?.port}`);
+if (import.meta.main) {
+  const port = process.env.PORT || 3001;
+  app.listen(port);
+  console.log(`🦊 ElysiaJS CMS APIサーバー起動中: ${app.server?.hostname}:${app.server?.port}`);
+}
 
 export type App = typeof app;
+export default app;

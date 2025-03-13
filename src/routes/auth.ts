@@ -1,15 +1,14 @@
 import { jwt } from '@elysiajs/jwt';
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
+import { authMiddleware } from '../middlewares/auth';
 
-// 認証関連のルーティング定義
+/**
+ * 認証関連のルーティング定義
+ * DDDアプローチに基づき、プレゼンテーション層としてのルーティングを実装
+ */
 export const authRouter = new Elysia({ prefix: '/auth' })
-  .use(
-    jwt({
-      name: 'jwt',
-      secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
-    }),
-  )
+  .use(authMiddleware)
   // ユーザー登録エンドポイント
   .post(
     '/register',
@@ -34,6 +33,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             email,
             password, // 本番では必ずハッシュ化してください！
             name,
+            role: 'user', // デフォルトロールを明示的に設定
           },
           select: {
             id: true,
@@ -120,35 +120,10 @@ export const authRouter = new Elysia({ prefix: '/auth' })
   // ユーザー情報取得エンドポイント
   .get(
     '/me',
-    async ({ headers, jwt, set }) => {
-      const authorization = headers.authorization;
-
-      if (!authorization) {
+    async ({ user, set }) => {
+      if (!user) {
         set.status = 401;
         return { error: '認証が必要です' };
-      }
-
-      const token = authorization.split(' ')[1];
-      const payload = await jwt.verify(token);
-
-      if (!payload || !payload.userId) {
-        set.status = 401;
-        return { error: '無効なトークンです' };
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: payload.userId },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-        },
-      });
-
-      if (!user) {
-        set.status = 404;
-        return { error: 'ユーザーが見つかりません' };
       }
 
       return { user };

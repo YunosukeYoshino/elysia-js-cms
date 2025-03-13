@@ -17,35 +17,32 @@
     "lint:fix": "biome check --apply .",
     "prepare-db:test": "NODE_ENV=test bun prisma migrate reset --force && bun prisma db push"
   },
-  "keywords": [
-    "elysiajs",
-    "cms",
-    "api",
-    "bun"
-  ],
+  "keywords": ["elysiajs", "cms", "api", "bun"],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@elysiajs/cors": "^0.7.2",
-    "@elysiajs/jwt": "^0.7.0",
-    "@elysiajs/swagger": "^0.7.3",
-    "@elysiajs/html": "^0.7.3",
-    "@prisma/client": "^5.9.0",
-    "elysia": "^0.7.30",
+    "@elysiajs/cors": "^1.2.0",
+    "@elysiajs/jwt": "^1.2.0",
+    "@elysiajs/swagger": "^1.2.2",
+    "@elysiajs/html": "^1.2.0",
+    "@prisma/client": "^6.5.0",
+    "elysia": "^1.2.25",
     "mime-types": "^2.1.35",
-    "sharp": "^0.33.2",
-    "uuid": "^9.0.1",
-    "formidable": "^3.5.1"
+    "sharp": "^0.33.5",
+    "uuid": "^11.1.0",
+    "formidable": "^3.5.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.5.3",
+    "@biomejs/biome": "1.9.4",
+    "@types/formidable": "^3.4.5",
     "@types/mime-types": "^2.1.4",
-    "@types/node": "^20.11.14",
+    "@types/node": "^22.13.10",
     "@types/supertest": "^6.0.2",
-    "@types/uuid": "^9.0.8",
-    "bun-types": "^1.0.25",
-    "prisma": "^5.9.0",
-    "supertest": "^6.3.4",
-    "typescript": "^5.3.3"
+    "@types/uuid": "^10.0.0",
+    "@types/web": "^0.0.211",
+    "bun-types": "^1.2.5",
+    "prisma": "^6.5.0",
+    "supertest": "^7.0.0",
+    "typescript": "^5.8.2"
   }
 }
