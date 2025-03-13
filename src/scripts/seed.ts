@@ -121,15 +121,15 @@ console.log(\`Server is running at \${app.server?.hostname}:\${app.server?.port}
     data: [
       {
         postId: post1.id,
-        categoryId: categories.find(c => c.slug === 'technology')!.id,
+        categoryId: categories.find((c) => c.slug === 'technology')?.id,
       },
       {
         postId: post1.id,
-        categoryId: categories.find(c => c.slug === 'programming')!.id,
+        categoryId: categories.find((c) => c.slug === 'programming')?.id,
       },
       {
         postId: post1.id,
-        categoryId: categories.find(c => c.slug === 'web')!.id,
+        categoryId: categories.find((c) => c.slug === 'web')?.id,
       },
     ],
     skipDuplicates: true,
@@ -196,11 +196,11 @@ Prismaを使うことで、データベース操作がTypeScriptの型システ�
     data: [
       {
         postId: post2.id,
-        categoryId: categories.find(c => c.slug === 'programming')!.id,
+        categoryId: categories.find((c) => c.slug === 'programming')?.id,
       },
       {
         postId: post2.id,
-        categoryId: categories.find(c => c.slug === 'web')!.id,
+        categoryId: categories.find((c) => c.slug === 'web')?.id,
       },
     ],
     skipDuplicates: true,
@@ -242,11 +242,11 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
     data: [
       {
         postId: post3.id,
-        categoryId: categories.find(c => c.slug === 'technology')!.id,
+        categoryId: categories.find((c) => c.slug === 'technology')?.id,
       },
       {
         postId: post3.id,
-        categoryId: categories.find(c => c.slug === 'mobile')!.id,
+        categoryId: categories.find((c) => c.slug === 'mobile')?.id,
       },
     ],
     skipDuplicates: true,
@@ -288,7 +288,7 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
     data: [
       {
         postId: post4.id,
-        categoryId: categories.find(c => c.slug === 'design')!.id,
+        categoryId: categories.find((c) => c.slug === 'design')?.id,
       },
     ],
     skipDuplicates: true,

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware, authenticated } from '../middlewares/auth';
@@ -10,24 +11,24 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
     '/',
     async ({ query }) => {
       const { published, authorId, categoryId, take = 10, skip = 0 } = query;
-      
-      const whereClause: any = {};
-      
+
+      const whereClause: Prisma.PostWhereInput = {};
+
       // 公開状態でフィルタリング
       if (published !== undefined) {
         whereClause.published = published === 'true';
       }
-      
+
       // 著者IDでフィルタリング
       if (authorId) {
-        whereClause.authorId = parseInt(authorId as string);
+        whereClause.authorId = Number.parseInt(authorId as string);
       }
-      
+
       // カテゴリIDでフィルタリング
       if (categoryId) {
         whereClause.categories = {
           some: {
-            categoryId: parseInt(categoryId as string),
+            categoryId: Number.parseInt(categoryId as string),
           },
         };
       }
@@ -52,8 +53,8 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
           orderBy: {
             createdAt: 'desc',
           },
-          take: parseInt(take as string),
-          skip: parseInt(skip as string),
+          take: Number.parseInt(take as string),
+          skip: Number.parseInt(skip as string),
         }),
         prisma.post.count({ where: whereClause }),
       ]);
@@ -68,8 +69,8 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         data: formattedPosts,
         meta: {
           total,
-          skip: parseInt(skip as string),
-          take: parseInt(take as string),
+          skip: Number.parseInt(skip as string),
+          take: Number.parseInt(take as string),
         },
       };
     },
@@ -86,7 +87,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         summary: '投稿一覧の取得',
         description: 'フィルタリングやページネーションオプション付きで投稿を取得します',
       },
-    }
+    },
   )
   // IDで投稿を取得
   .get(
@@ -94,7 +95,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
     async ({ params, set }) => {
       const { id } = params;
       const post = await prisma.post.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
         include: {
           author: {
             select: {
@@ -131,7 +132,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         summary: '投稿の詳細取得',
         description: 'IDを指定して特定の投稿を取得します',
       },
-    }
+    },
   )
   // 新しい投稿を作成
   .post(
@@ -202,7 +203,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         description: '新しい投稿を作成します（認証が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // 投稿を更新
   .put(
@@ -219,7 +220,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
 
       // 投稿の存在確認
       const post = await prisma.post.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
       });
 
       if (!post) {
@@ -228,7 +229,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
       }
 
       // 権限チェック（管理者または投稿の作成者のみ更新可能）
-      if (post.authorId !== user.id && user.role !== 'admin') {
+      if (Number(post.authorId) !== Number(user.id) && user.role !== 'admin') {
         set.status = 403;
         return { error: 'この操作を行う権限がありません' };
       }
@@ -239,13 +240,13 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
           // 既存のカテゴリ関連を削除（もしカテゴリIDが提供されている場合）
           if (categoryIds) {
             await tx.categoryOnPost.deleteMany({
-              where: { postId: parseInt(id) },
+              where: { postId: Number.parseInt(id) },
             });
           }
 
           // 投稿を更新
           const updated = await tx.post.update({
-            where: { id: parseInt(id) },
+            where: { id: Number.parseInt(id) },
             data: {
               title,
               content,
@@ -309,7 +310,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         description: '既存の投稿を更新します（認証と権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // 投稿を削除
   .delete(
@@ -325,7 +326,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
 
       // 投稿の存在確認
       const post = await prisma.post.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
       });
 
       if (!post) {
@@ -334,7 +335,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
       }
 
       // 権限チェック（管理者または投稿の作成者のみ削除可能）
-      if (post.authorId !== user.id && user.role !== 'admin') {
+      if (Number(post.authorId) !== Number(user.id) && user.role !== 'admin') {
         set.status = 403;
         return { error: 'この操作を行う権限がありません' };
       }
@@ -344,12 +345,12 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         await prisma.$transaction(async (tx) => {
           // 関連するカテゴリ関連を削除
           await tx.categoryOnPost.deleteMany({
-            where: { postId: parseInt(id) },
+            where: { postId: Number.parseInt(id) },
           });
 
           // 投稿を削除
           await tx.post.delete({
-            where: { id: parseInt(id) },
+            where: { id: Number.parseInt(id) },
           });
         });
 
@@ -370,5 +371,5 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         description: '投稿を削除します（認証と権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   );

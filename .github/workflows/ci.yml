@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Formatter Check
+        run: bun run format
+
+      - name: Run Linter Check
+        run: bun run lint
+
+      - name: Setup Test Database
+        env:
+          DATABASE_URL: "file:./test.db"
+        run: bun run prepare-db:test
+
+      - name: Run Tests
+        env:
+          DATABASE_URL: "file:./test.db"
+        run: bun test
+
+      - name: Run Tests with Coverage
+        env:
+          DATABASE_URL: "file:./test.db"
+        run: bun test --coverage

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware, authenticated, isAdmin } from '../middlewares/auth';
@@ -23,7 +24,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         summary: 'カテゴリ一覧の取得',
         description: '全てのカテゴリを取得します',
       },
-    }
+    },
   )
   // IDでカテゴリを取得
   .get(
@@ -31,7 +32,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
     async ({ params, set }) => {
       const { id } = params;
       const category = await prisma.category.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
       });
 
       if (!category) {
@@ -50,7 +51,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         summary: 'カテゴリの詳細取得',
         description: 'IDを指定して特定のカテゴリを取得します',
       },
-    }
+    },
   )
   // 新しいカテゴリを作成（管理者のみ）
   .post(
@@ -95,7 +96,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         description: '新しいカテゴリを作成します（管理者権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // カテゴリを更新（管理者のみ）
   .put(
@@ -106,7 +107,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
 
       // カテゴリの存在確認
       const category = await prisma.category.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
       });
 
       if (!category) {
@@ -128,7 +129,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
 
       try {
         const updatedCategory = await prisma.category.update({
-          where: { id: parseInt(id) },
+          where: { id: Number.parseInt(id) },
           data: {
             name,
             slug,
@@ -156,7 +157,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         description: '既存のカテゴリを更新します（管理者権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // カテゴリを削除（管理者のみ）
   .delete(
@@ -166,7 +167,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
 
       // カテゴリの存在確認
       const category = await prisma.category.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
       });
 
       if (!category) {
@@ -176,17 +177,19 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
 
       // このカテゴリに関連付けられた投稿の確認
       const postsWithCategory = await prisma.categoryOnPost.findFirst({
-        where: { categoryId: parseInt(id) },
+        where: { categoryId: Number.parseInt(id) },
       });
 
       if (postsWithCategory) {
         set.status = 400;
-        return { error: 'このカテゴリは投稿に使用されているため削除できません' };
+        return {
+          error: 'このカテゴリは投稿に使用されているため削除できません',
+        };
       }
 
       try {
         await prisma.category.delete({
-          where: { id: parseInt(id) },
+          where: { id: Number.parseInt(id) },
         });
 
         return { message: 'カテゴリを削除しました' };
@@ -206,7 +209,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         description: 'カテゴリを削除します（管理者権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // 特定カテゴリの投稿を取得
   .get(
@@ -217,7 +220,7 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
 
       // カテゴリの存在確認
       const category = await prisma.category.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number.parseInt(id) },
       });
 
       if (!category) {
@@ -225,10 +228,10 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         return { error: 'カテゴリが見つかりません' };
       }
 
-      const whereClause: any = {
+      const whereClause: Prisma.PostWhereInput = {
         categories: {
           some: {
-            categoryId: parseInt(id),
+            categoryId: Number.parseInt(id),
           },
         },
       };
@@ -258,8 +261,8 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
           orderBy: {
             createdAt: 'desc',
           },
-          take: parseInt(take as string),
-          skip: parseInt(skip as string),
+          take: Number.parseInt(take as string),
+          skip: Number.parseInt(skip as string),
         }),
         prisma.post.count({ where: whereClause }),
       ]);
@@ -275,8 +278,8 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         meta: {
           total,
           category,
-          skip: parseInt(skip as string),
-          take: parseInt(take as string),
+          skip: Number.parseInt(skip as string),
+          take: Number.parseInt(take as string),
         },
       };
     },
@@ -294,5 +297,5 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         summary: 'カテゴリに属する投稿の取得',
         description: '特定のカテゴリに属する投稿を取得します',
       },
-    }
+    },
   );
