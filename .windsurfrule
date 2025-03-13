@@ -1,0 +1,37 @@
+# Elysia.js Windsurf Rules
+
+# API構造に関するルール
+API_ENDPOINT_PREFIX=api/v1
+CONTROLLER_PATTERN=src/controllers/*.ts
+MODEL_PATTERN=src/models/*.ts
+
+# コード規約
+MAX_FUNCTION_LINES=50
+PREFER_ASYNC_AWAIT=true
+USE_TYPESCRIPT_STRICT=true
+
+# Elysiaの推奨プラグイン
+REQUIRED_PLUGINS=@elysiajs/cors,@elysiajs/swagger
+RECOMMENDED_PLUGINS=@elysiajs/jwt,@elysiajs/html
+
+# セキュリティに関するルール
+ENABLE_CORS=true
+CORS_ALLOWED_ORIGINS=*
+JWT_AUTH_REQUIRED=true
+
+# パフォーマンスに関するルール
+COMPRESSION_ENABLED=true
+CACHE_CONTROL_HEADER=true
+RATE_LIMITING=true
+
+# エラーハンドリング
+CONSISTENT_ERROR_RESPONSE=true
+LOG_ALL_ERRORS=true
+
+# ドキュメント
+API_DOCUMENTATION_REQUIRED=true
+SWAGGER_ENABLED=true
+
+# 環境設定
+NODE_ENV=development
+PORT=3000
