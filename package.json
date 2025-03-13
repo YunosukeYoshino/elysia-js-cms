@@ -7,7 +7,15 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir=dist",
-    "seed": "bun run src/scripts/seed.ts"
+    "seed": "bun run src/scripts/seed.ts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "test:watch": "bun test --watch",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "lint:fix": "biome check --apply .",
+    "prepare-db:test": "NODE_ENV=test bun prisma migrate reset --force && bun prisma db push"
   },
   "keywords": [
     "elysiajs",
@@ -29,11 +37,14 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.5.3",
     "@types/mime-types": "^2.1.4",
     "@types/node": "^20.11.14",
+    "@types/supertest": "^6.0.2",
     "@types/uuid": "^9.0.8",
     "bun-types": "^1.0.25",
     "prisma": "^5.9.0",
+    "supertest": "^6.3.4",
     "typescript": "^5.3.3"
   }
 }
