@@ -34,14 +34,20 @@ export const filesRouter = new Elysia({ prefix: '/files' })
       limit: '10mb' // アップロードサイズ制限
     })
   )
+  // 認証ミドルウェアを使用
+  .use(authorize)
   // ファイルをアップロード
   .post(
     '/upload',
-    async ({ body, set }) => {
+    async ({ body, set, user }) => {
       try {
-        // 認証済みユーザーのIDを取得（ここでは仮に1を使用）
-        // 実際には認証ミドルウェアからユーザーIDを取得します
-        const userId = 1;
+        // 認証済みユーザーのIDを取得
+        const userId = user?.id; // Assuming ctx.user is populated by your auth middleware
+        
+        if (!userId) {
+          set.status = 401;
+          return { success: false, message: 'Unauthorized' };
+        }
 
         // ファイルが存在するか確認
         if (!body.file) {
@@ -72,7 +78,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
             .toFile(thumbnailPath);
           
           // 相対パスに変換
-          thumbnailPath = thumbnailPath.replace('./', '/');
+          thumbnailPath = `/thumbnails/${fileName}`;  // URLパスとして保存
         }
         
         // データベースにファイル情報を保存
@@ -81,7 +87,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
             fileName,
             originalName,
             mimeType,
-            filePath: filePath.replace('./', '/'),
+            filePath: `/files/${fileName}`,  // URLパスとして保存
             thumbnailPath,
             fileSize: file.size,
             userId
@@ -107,6 +113,84 @@ export const filesRouter = new Elysia({ prefix: '/files' })
         tags: ['files'],
         summary: 'ファイルをアップロードする',
         description: '新しいファイルをサーバーにアップロードします'
+      }
+    }
+  )
+  // ファイルを提供するエンドポイント
+  .get(
+    '/content/:fileName',
+    async ({ params, set }) => {
+      try {
+        const { fileName } = params;
+        const filePath = join(UPLOAD_DIR, fileName);
+        
+        // ファイルの存在確認とMIMEタイプの取得
+        const fileInfo = await prisma.file.findFirst({
+          where: { fileName }
+        });
+        
+        if (!fileInfo) {
+          set.status = 404;
+          return { success: false, message: 'File not found' };
+        }
+        
+        // ファイルを読み込んで返す
+        const file = Bun.file(filePath);
+        set.headers['Content-Type'] = fileInfo.mimeType;
+        return file;
+      } catch (error) {
+        console.error('Error serving file:', error);
+        set.status = 500;
+        return { success: false, message: 'Failed to serve file' };
+      }
+    },
+    {
+      params: t.Object({
+        fileName: t.String()
+      }),
+      detail: {
+        tags: ['files'],
+        summary: 'ファイルコンテンツを取得',
+        description: 'ファイル名を指定してコンテンツを取得します'
+      }
+    }
+  )
+  // サムネイルを提供するエンドポイント
+  .get(
+    '/thumbnails/:fileName',
+    async ({ params, set }) => {
+      try {
+        const { fileName } = params;
+        const thumbPath = join(THUMBS_DIR, fileName);
+        
+        // ファイルの存在確認とMIMEタイプの取得
+        const fileInfo = await prisma.file.findFirst({
+          where: { fileName }
+        });
+        
+        if (!fileInfo || !fileInfo.thumbnailPath) {
+          set.status = 404;
+          return { success: false, message: 'Thumbnail not found' };
+        }
+        
+        // サムネイルを読み込んで返す
+        const file = Bun.file(thumbPath);
+        set.headers['Content-Type'] = fileInfo.mimeType;
+        return file;
+      } catch (error) {
+        console.error('Error serving thumbnail:', error);
+        set.status = 500;
+        return { success: false, message: 'Failed to serve thumbnail' };
+      }
+    },
+    {
+      params: t.Object({
+        fileName: t.String()
+      }),
+      detail: {
+        tags: ['files'],
+        summary: 'サムネイルを取得',
+        description: 'ファイル名を指定してサムネイルを取得します'
       }
     }
   )
@@ -196,8 +280,14 @@ export const filesRouter = new Elysia({ prefix: '/files' })
   // ファイルを削除
   .delete(
     '/:id',
-    async ({ params, set }) => {
+    async ({ params, set, user }) => {
       try {
+        // 認証チェック
+        if (!user?.id) {
+          set.status = 401;
+          return { success: false, message: 'Unauthorized' };
+        }
+
         const fileId = Number(params.id);
         
         // ファイル情報を取得
@@ -210,19 +300,25 @@ export const filesRouter = new Elysia({ prefix: '/files' })
           return { success: false, message: 'File not found' };
         }
 
+        // 所有者チェック（管理者でない場合）
+        if (file.userId !== user.id && user.role !== 'admin') {
+          set.status = 403;
+          return { success: false, message: 'Permission denied' };
+        }
+
         // DBからファイル情報を削除
         await prisma.file.delete({
           where: { id: fileId }
         });
 
         // ディスクからファイルを削除
-        const filePath = `.${file.filePath}`;
-        await unlink(filePath).catch(err => console.error(`Failed to delete file ${filePath}:`, err));
+        const actualFilePath = join(UPLOAD_DIR, file.fileName);
+        await unlink(actualFilePath).catch(err => console.error(`Failed to delete file ${actualFilePath}:`, err));
 
         // サムネイルがある場合は削除
         if (file.thumbnailPath) {
-          const thumbPath = `.${file.thumbnailPath}`;
-          await unlink(thumbPath).catch(err => console.error(`Failed to delete thumbnail ${thumbPath}:`, err));
+          const actualThumbPath = join(THUMBS_DIR, file.fileName);
+          await unlink(actualThumbPath).catch(err => console.error(`Failed to delete thumbnail ${actualThumbPath}:`, err));
         }
 
         return {
