@@ -1,7 +1,7 @@
+import { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware, authenticated } from '../middlewares/auth';
-import { Prisma } from '@prisma/client';
 
 // 投稿関連のルーティング定義
 export const postsRouter = new Elysia({ prefix: '/posts' })
@@ -11,19 +11,19 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
     '/',
     async ({ query }) => {
       const { published, authorId, categoryId, take = 10, skip = 0 } = query;
-      
+
       const whereClause: Prisma.PostWhereInput = {};
-      
+
       // 公開状態でフィルタリング
       if (published !== undefined) {
         whereClause.published = published === 'true';
       }
-      
+
       // 著者IDでフィルタリング
       if (authorId) {
         whereClause.authorId = parseInt(authorId as string);
       }
-      
+
       // カテゴリIDでフィルタリング
       if (categoryId) {
         whereClause.categories = {
@@ -87,7 +87,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         summary: '投稿一覧の取得',
         description: 'フィルタリングやページネーションオプション付きで投稿を取得します',
       },
-    }
+    },
   )
   // IDで投稿を取得
   .get(
@@ -132,7 +132,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         summary: '投稿の詳細取得',
         description: 'IDを指定して特定の投稿を取得します',
       },
-    }
+    },
   )
   // 新しい投稿を作成
   .post(
@@ -203,7 +203,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         description: '新しい投稿を作成します（認証が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // 投稿を更新
   .put(
@@ -310,7 +310,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         description: '既存の投稿を更新します（認証と権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   )
   // 投稿を削除
   .delete(
@@ -371,5 +371,5 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         description: '投稿を削除します（認証と権限が必要）',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   );

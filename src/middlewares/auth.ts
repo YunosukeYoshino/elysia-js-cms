@@ -1,5 +1,5 @@
-import { Elysia } from 'elysia';
 import { jwt } from '@elysiajs/jwt';
+import { Elysia } from 'elysia';
 import prisma from '../lib/prisma';
 
 // JWTで認証を行うミドルウェア
@@ -8,11 +8,11 @@ export const authMiddleware = new Elysia()
     jwt({
       name: 'jwt',
       secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
-    })
+    }),
   )
   .derive(async ({ jwt, headers }) => {
     const authorization = headers.authorization;
-    
+
     // ヘッダーからトークンを取得
     const token = authorization?.split(' ')[1];
     if (!token) {
@@ -47,7 +47,7 @@ export const authenticated = (app: Elysia) =>
       set.status = 401;
       return { error: 'Unauthorized' };
     }
-    
+
     return { isAuthenticated: true };
   });
 
@@ -58,6 +58,6 @@ export const isAdmin = (app: Elysia) =>
       set.status = 403;
       return { error: 'Forbidden: Admin access required' };
     }
-    
+
     return { isAdmin: true };
   });

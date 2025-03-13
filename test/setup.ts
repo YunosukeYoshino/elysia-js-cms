@@ -1,7 +1,7 @@
+import { afterAll, beforeAll } from 'bun:test';
 // テスト環境用のファイル
 // Bunはテスト前に自動的にこのファイルを読み込みます
 import { PrismaClient } from '@prisma/client';
-import { beforeAll, afterAll } from 'bun:test';
 
 // テスト用環境変数を設定
 process.env.NODE_ENV = 'test';
@@ -16,7 +16,7 @@ beforeAll(async () => {
   try {
     // テスト用DBを初期化
     await prisma.$connect();
-    
+
     // 既存データをクリーンアップ
     await prisma.$transaction([
       prisma.categoryOnPost.deleteMany(),
@@ -25,7 +25,7 @@ beforeAll(async () => {
       prisma.category.deleteMany(),
       prisma.user.deleteMany(),
     ]);
-    
+
     // テスト用の基本データを追加
     await prisma.user.create({
       data: {
@@ -36,7 +36,7 @@ beforeAll(async () => {
         role: 'admin',
       },
     });
-    
+
     await prisma.user.create({
       data: {
         id: 2,
@@ -46,7 +46,7 @@ beforeAll(async () => {
         role: 'user',
       },
     });
-    
+
     await prisma.category.create({
       data: {
         id: 1,
@@ -54,7 +54,7 @@ beforeAll(async () => {
         slug: 'test-category',
       },
     });
-    
+
     console.log('Test database initialized successfully');
   } catch (error) {
     console.error('Error setting up test database:', error);

@@ -1,10 +1,10 @@
-import { Elysia } from 'elysia';
-import { swagger } from '@elysiajs/swagger';
 import { cors } from '@elysiajs/cors';
+import { swagger } from '@elysiajs/swagger';
+import { Elysia } from 'elysia';
 import { authRouter } from './routes/auth';
-import { postsRouter } from './routes/posts';
 import { categoriesRouter } from './routes/categories';
 import { filesRouter } from './routes/files';
+import { postsRouter } from './routes/posts';
 
 const app = new Elysia()
   .use(
@@ -22,21 +22,18 @@ const app = new Elysia()
           { name: 'files', description: 'ファイル管理エンドポイント' },
         ],
       },
-    })
+    }),
   )
   .use(cors())
-  .get('/', () => 'ElysiaJS CMS API - お好みのツールでAPIを探索するには /swagger にアクセスしてください')
-  .group('/api', (app) => 
-    app
-      .use(authRouter)
-      .use(postsRouter)
-      .use(categoriesRouter)
-      .use(filesRouter)
+  .get(
+    '/',
+    () => 'ElysiaJS CMS API - お好みのツールでAPIを探索するには /swagger にアクセスしてください',
+  )
+  .group('/api', (app) =>
+    app.use(authRouter).use(postsRouter).use(categoriesRouter).use(filesRouter),
   )
   .listen(process.env.PORT || 3000);
 
-console.log(
-  `🦊 ElysiaJS CMS APIサーバー起動中: ${app.server?.hostname}:${app.server?.port}`
-);
+console.log(`🦊 ElysiaJS CMS APIサーバー起動中: ${app.server?.hostname}:${app.server?.port}`);
 
 export type App = typeof app;

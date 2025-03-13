@@ -1,5 +1,5 @@
-import { Elysia, t } from 'elysia';
 import { jwt } from '@elysiajs/jwt';
+import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 
 // 認証関連のルーティング定義
@@ -8,7 +8,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     jwt({
       name: 'jwt',
       secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
-    })
+    }),
   )
   // ユーザー登録エンドポイント
   .post(
@@ -63,7 +63,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         summary: '新規ユーザー登録',
         description: 'アカウントを作成します',
       },
-    }
+    },
   )
   // ログインエンドポイント
   .post(
@@ -115,14 +115,14 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         summary: 'ログイン',
         description: 'ユーザー認証を行いJWTトークンを取得します',
       },
-    }
+    },
   )
   // ユーザー情報取得エンドポイント
   .get(
     '/me',
     async ({ headers, jwt, set }) => {
       const authorization = headers.authorization;
-      
+
       if (!authorization) {
         set.status = 401;
         return { error: '認証が必要です' };
@@ -160,5 +160,5 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         description: 'ログインしているユーザー自身の情報を取得します',
         security: [{ bearerAuth: [] }],
       },
-    }
+    },
   );
