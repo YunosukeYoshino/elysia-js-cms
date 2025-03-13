@@ -29,10 +29,16 @@ jobs:
         run: bun run lint
 
       - name: Setup Test Database
+        env:
+          DATABASE_URL: "file:./test.db"
         run: bun run prepare-db:test
 
       - name: Run Tests
+        env:
+          DATABASE_URL: "file:./test.db"
         run: bun test
 
       - name: Run Tests with Coverage
+        env:
+          DATABASE_URL: "file:./test.db"
         run: bun test --coverage
