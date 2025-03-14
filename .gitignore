@@ -1,9 +1,14 @@
-# Dependency directories
-node_modules/
+# Dependencies
+node_modules
+.pnp
+.pnp.js
 
-# Build directories
-dist/
-build/
+# Production build
+build
+dist
+
+# Testing
+coverage
 
 # Environment variables
 .env
@@ -13,23 +18,20 @@ build/
 .env.production.local
 
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Misc
+# Editor specific
 .DS_Store
-.vscode/
-.idea/
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Prisma
-prisma/.env
-.env
-
-# Bun
-.bun
-
-# Uploaded files
-uploads/
+# Husky hooks directory
+.husky
