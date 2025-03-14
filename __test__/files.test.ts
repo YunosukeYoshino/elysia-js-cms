@@ -11,6 +11,7 @@ describe('Files Routes', () => {
   const testPassword = 'password123';
   const testName = 'Files Test User';
   let userId: number;
+  let testFileId: number;
   const testUploadDir = './test-uploads';
   const testThumbsDir = './test-uploads/thumbnails';
 
@@ -39,10 +40,9 @@ describe('Files Routes', () => {
 
       userId = user.id;
 
-      // テスト用のファイルレコードをDBに作成
-      await prisma.file.create({
+      // テスト用のファイルレコードをDBに作成（IDは自動生成）
+      const fileRecord = await prisma.file.create({
         data: {
-          id: 9999,
           fileName: 'test-file.txt',
           originalName: 'test-file.txt',
           mimeType: 'text/plain',
@@ -51,6 +51,9 @@ describe('Files Routes', () => {
           userId: userId,
         },
       });
+      
+      // 自動生成されたIDを保存
+      testFileId = fileRecord.id;
     } catch (error) {
       console.error('Error during test setup:', error);
     }
@@ -95,6 +98,14 @@ describe('Files Routes', () => {
 
     // ステータスコードが404(Not Found)または401(認証エラー)のいずれかであることを確認
     expect([404, 401]).toContain(response.status);
+  });
+
+  // 特定のファイル情報取得テスト
+  it('should handle specific file requests', async () => {
+    const response = await app.handle(new Request(`http://localhost/api/files/${testFileId}`));
+
+    // ステータスコードが200(成功)または401(認証エラー)のいずれかであることを確認
+    expect([200, 401]).toContain(response.status);
   });
 
   // ファイルアップロードエンドポイントの存在確認テスト
