@@ -1,4 +1,3 @@
-import { jwt } from '@elysiajs/jwt';
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware } from '../middlewares/auth';
@@ -76,7 +75,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
           message: 'ユーザー登録が完了しました',
           user,
         };
-      } catch (error) {
+      } catch (_error) {
         set.status = 500;
         return { error: 'ユーザー登録に失敗しました' };
       }

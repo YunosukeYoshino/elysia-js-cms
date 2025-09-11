@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { randomUUID } from 'node:crypto';
 import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';

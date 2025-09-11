@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { jwt } from '@elysiajs/jwt';
 import type { App } from '../src/index';
 import app from '../src/index';
@@ -12,7 +12,7 @@ describe('Auth Routes', () => {
   let authToken: string;
 
   // JWT設定をアプリケーションと同じものを使用
-  const jwtInstance = jwt({
+  const _jwtInstance = jwt({
     name: 'jwt',
     secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
   });

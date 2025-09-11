@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, unlink } from 'node:fs/promises';
 import type { IncomingMessage } from 'node:http';
 import { join } from 'node:path';
 import type { User } from '@prisma/client';
@@ -101,7 +101,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
 
         return new Promise<FileUploadResponse>((resolve) => {
           // formidableとの型互換性を保ちながら、型安全な実装を行う
-          form.parse(request.raw, async (err: Error | null, fields: Fields, files: Files) => {
+          form.parse(request.raw, async (err: Error | null, _fields: Fields, files: Files) => {
             if (err) {
               console.error('ファイルのアップロードに失敗しました:', err);
               set.status = 500;
