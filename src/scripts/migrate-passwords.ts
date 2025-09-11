@@ -1,6 +1,6 @@
 /**
  * 既存ユーザーのパスワードをハッシュ化するマイグレーションスクリプト
- * 
+ *
  * 使用方法:
  * bun run src/scripts/migrate-passwords.ts
  */
@@ -10,7 +10,7 @@ import { hashPassword } from '../utils/password';
 
 async function migratePasswords() {
   console.log('🔄 パスワードマイグレーション開始...');
-  
+
   try {
     // 平文パスワードを持つユーザーを取得
     // ハッシュ化されたパスワードは ':' を含むため、含まないものを平文と判定
@@ -18,15 +18,15 @@ async function migratePasswords() {
       where: {
         password: {
           not: {
-            contains: ':'
-          }
-        }
+            contains: ':',
+          },
+        },
       },
       select: {
         id: true,
         email: true,
-        password: true
-      }
+        password: true,
+      },
     });
 
     if (users.length === 0) {
@@ -42,14 +42,14 @@ async function migratePasswords() {
     for (const user of users) {
       try {
         console.log(`🔐 ユーザー ${user.email} のパスワードをハッシュ化中...`);
-        
+
         // パスワードをハッシュ化
         const { hash } = await hashPassword(user.password);
-        
+
         // データベースを更新
         await prisma.user.update({
           where: { id: user.id },
-          data: { password: hash }
+          data: { password: hash },
         });
 
         successCount++;
@@ -71,7 +71,6 @@ async function migratePasswords() {
       console.log('\n⚠️  一部のマイグレーションが失敗しました。ログを確認してください。');
       process.exit(1);
     }
-
   } catch (error) {
     console.error('💥 マイグレーション中にエラーが発生しました:', error);
     process.exit(1);
@@ -83,7 +82,7 @@ async function migratePasswords() {
 // バックアップ用のスクリプト
 async function createBackup() {
   console.log('💾 ユーザーデータのバックアップを作成中...');
-  
+
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -93,21 +92,21 @@ async function createBackup() {
         name: true,
         role: true,
         createdAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     const backupData = {
       timestamp: new Date().toISOString(),
-      users: users
+      users: users,
     };
 
-    const fs = require('fs');
+    const fs = require('node:fs');
     const backupPath = `backup-users-${Date.now()}.json`;
-    
+
     fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
     console.log(`✅ バックアップが作成されました: ${backupPath}`);
-    
+
     return backupPath;
   } catch (error) {
     console.error('❌ バックアップ作成に失敗しました:', error);
@@ -118,7 +117,7 @@ async function createBackup() {
 async function main() {
   console.log('🚀 パスワードマイグレーションツール');
   console.log('=====================================');
-  
+
   // 引数を確認
   const args = process.argv.slice(2);
   const shouldBackup = !args.includes('--no-backup');
@@ -126,26 +125,26 @@ async function main() {
 
   if (dryRun) {
     console.log('🔍 ドライラン モード (実際の変更は行いません)');
-    
+
     const users = await prisma.user.findMany({
       where: {
         password: {
           not: {
-            contains: ':'
-          }
-        }
+            contains: ':',
+          },
+        },
       },
       select: {
         id: true,
-        email: true
-      }
+        email: true,
+      },
     });
 
     console.log(`📊 マイグレーション対象: ${users.length}人`);
-    users.forEach(user => {
+    for (const user of users) {
       console.log(`  - ${user.email}`);
-    });
-    
+    }
+
     await prisma.$disconnect();
     return;
   }

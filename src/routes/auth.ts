@@ -3,17 +3,22 @@ import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware } from '../middlewares/auth';
 import { authRateLimit, registerRateLimit } from '../middlewares/rate-limit';
-import { hashPassword, verifyPassword, validatePasswordStrength, generateSecureToken } from '../utils/password';
 import {
-  incrementLoginAttempts,
-  resetLoginAttempts,
+  AUTH_CONFIG,
   checkAccountLockByEmail,
   createRefreshToken,
-  validateRefreshToken,
+  incrementLoginAttempts,
+  resetLoginAttempts,
   revokeAllRefreshTokens,
   revokeRefreshToken,
-  AUTH_CONFIG
+  validateRefreshToken,
 } from '../utils/auth-security';
+import {
+  generateSecureToken,
+  hashPassword,
+  validatePasswordStrength,
+  verifyPassword,
+} from '../utils/password';
 
 /**
  * 認証関連のルーティング定義
@@ -42,16 +47,16 @@ export const authRouter = new Elysia({ prefix: '/auth' })
       const passwordValidation = validatePasswordStrength(password);
       if (!passwordValidation.isValid) {
         set.status = 400;
-        return { 
+        return {
           error: 'パスワードが要件を満たしていません',
-          details: passwordValidation.errors
+          details: passwordValidation.errors,
         };
       }
 
       try {
         // パスワードをハッシュ化
         const { hash } = await hashPassword(password);
-        
+
         const user = await prisma.user.create({
           data: {
             email,
@@ -110,8 +115,8 @@ export const authRouter = new Elysia({ prefix: '/auth' })
       const { isLocked, lockedUntil } = await checkAccountLockByEmail(email);
       if (isLocked && lockedUntil) {
         set.status = 423;
-        return { 
-          error: `アカウントがロックされています。${lockedUntil.toLocaleString('ja-JP')}以降に再試行してください。`
+        return {
+          error: `アカウントがロックされています。${lockedUntil.toLocaleString('ja-JP')}以降に再試行してください。`,
         };
       }
 
@@ -133,11 +138,11 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         {
           userId: user.id,
           role: user.role,
-          type: 'access'
+          type: 'access',
         },
         {
-          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`
-        }
+          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`,
+        },
       );
 
       // リフレッシュトークンを生成
@@ -184,7 +189,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
       // ユーザー情報を取得
       const user = await prisma.user.findUnique({
         where: { id: tokenData.userId },
-        select: { id: true, email: true, name: true, role: true }
+        select: { id: true, email: true, name: true, role: true },
       });
 
       if (!user) {
@@ -197,11 +202,11 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         {
           userId: user.id,
           role: user.role,
-          type: 'access'
+          type: 'access',
         },
         {
-          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`
-        }
+          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`,
+        },
       );
 
       // 古いリフレッシュトークンを削除し、新しいものを生成

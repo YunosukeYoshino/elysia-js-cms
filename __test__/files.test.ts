@@ -51,7 +51,7 @@ describe('Files Routes', () => {
           userId: userId,
         },
       });
-      
+
       // 自動生成されたIDを保存
       testFileId = fileRecord.id;
     } catch (error) {
@@ -122,7 +122,7 @@ describe('Files Routes', () => {
     // ステータスコードが400, 401, 500のいずれかであることを確認
     // (認証エラー、ファイル不足エラー、または内部エラー)
     expect([400, 401, 500]).toContain(response.status);
-    
+
     // TODO: 今後追加すべきファイルアップロードのテスト:
     // - 認証済みユーザーによる有効なファイルアップロードテスト
     // - 無効なファイルタイプのテスト
