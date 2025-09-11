@@ -1,32 +1,44 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
-  test:
+  quality-check:
+    name: Code Quality Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install Dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
-      - name: Run Formatter Check
-        run: bun run format
-
-      - name: Run Linter Check
+      - name: Run Biome Lint Check
         run: bun run lint
+
+      - name: Run Biome Format Check
+        run: bun run check
+
+      # TypeScript type check is commented out due to Bun runtime compatibility issues
+      # - name: Run TypeScript Type Check
+      #   run: bun run typecheck
 
       - name: Setup Test Database
         env:
