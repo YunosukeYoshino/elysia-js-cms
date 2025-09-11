@@ -1,0 +1,162 @@
+/**
+ * 認証セキュリティユーティリティ
+ * ブルートフォース攻撃対策とアカウントロックアウト機能を提供
+ */
+
+import prisma from '../lib/prisma';
+
+export const AUTH_CONFIG = {
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOCKOUT_TIME_MINUTES: 15,
+  PASSWORD_RESET_EXPIRE_HOURS: 1,
+  REFRESH_TOKEN_EXPIRE_DAYS: 30,
+  ACCESS_TOKEN_EXPIRE_MINUTES: 15,
+} as const;
+
+/**
+ * ログイン試行回数をインクリメント
+ */
+export async function incrementLoginAttempts(userId: number): Promise<void> {
+  const lockoutTime = new Date(Date.now() + AUTH_CONFIG.LOCKOUT_TIME_MINUTES * 60 * 1000);
+  
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { loginAttempts: true }
+  });
+  
+  if (!user) return;
+  
+  const newAttempts = user.loginAttempts + 1;
+  
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      loginAttempts: newAttempts,
+      // 最大試行回数に達したらアカウントをロック
+      lockedUntil: newAttempts >= AUTH_CONFIG.MAX_LOGIN_ATTEMPTS ? lockoutTime : undefined
+    }
+  });
+}
+
+/**
+ * ログイン試行回数をリセット
+ */
+export async function resetLoginAttempts(userId: number): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      loginAttempts: 0,
+      lockedUntil: null
+    }
+  });
+}
+
+/**
+ * アカウントがロックされているかチェック
+ */
+export async function isAccountLocked(userId: number): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { lockedUntil: true }
+  });
+  
+  if (!user?.lockedUntil) return false;
+  
+  // ロック期間が過ぎている場合はロックを解除
+  if (user.lockedUntil <= new Date()) {
+    await resetLoginAttempts(userId);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * メールアドレスからアカウントロック状態をチェック
+ */
+export async function checkAccountLockByEmail(email: string): Promise<{
+  isLocked: boolean;
+  lockedUntil?: Date;
+}> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, lockedUntil: true }
+  });
+  
+  if (!user) return { isLocked: false };
+  
+  const isLocked = await isAccountLocked(user.id);
+  
+  return {
+    isLocked,
+    lockedUntil: isLocked ? user.lockedUntil ?? undefined : undefined
+  };
+}
+
+/**
+ * リフレッシュトークンを作成
+ */
+export async function createRefreshToken(userId: number, token: string): Promise<void> {
+  const expiresAt = new Date(Date.now() + AUTH_CONFIG.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60 * 1000);
+  
+  await prisma.refreshToken.create({
+    data: {
+      token,
+      userId,
+      expiresAt
+    }
+  });
+}
+
+/**
+ * リフレッシュトークンを検証
+ */
+export async function validateRefreshToken(token: string): Promise<{ userId: number } | null> {
+  const refreshToken = await prisma.refreshToken.findUnique({
+    where: { token },
+    select: { userId: true, expiresAt: true }
+  });
+  
+  if (!refreshToken || refreshToken.expiresAt <= new Date()) {
+    // 期限切れのトークンは削除
+    if (refreshToken) {
+      await prisma.refreshToken.delete({ where: { token } });
+    }
+    return null;
+  }
+  
+  return { userId: refreshToken.userId };
+}
+
+/**
+ * ユーザーの全リフレッシュトークンを削除（ログアウト時）
+ */
+export async function revokeAllRefreshTokens(userId: number): Promise<void> {
+  await prisma.refreshToken.deleteMany({
+    where: { userId }
+  });
+}
+
+/**
+ * 特定のリフレッシュトークンを削除
+ */
+export async function revokeRefreshToken(token: string): Promise<void> {
+  await prisma.refreshToken.delete({
+    where: { token }
+  }).catch(() => {
+    // トークンが既に削除されている場合は無視
+  });
+}
+
+/**
+ * 期限切れのリフレッシュトークンをクリーンアップ
+ */
+export async function cleanupExpiredTokens(): Promise<void> {
+  await prisma.refreshToken.deleteMany({
+    where: {
+      expiresAt: {
+        lt: new Date()
+      }
+    }
+  });
+}

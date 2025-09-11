@@ -7,7 +7,7 @@ import prisma from '../src/lib/prisma';
 describe('Auth Routes', () => {
   let server: ReturnType<App['listen']>;
   const testEmail = `test-${Date.now()}@example.com`;
-  const testPassword = 'password123';
+  const testPassword = 'TestPass123!';
   const testName = 'Test User';
   let authToken: string;
 
@@ -102,11 +102,12 @@ describe('Auth Routes', () => {
 
     expect(response.status).toBe(200);
     const data = await response.json();
-    expect(data.token).toBeDefined();
+    expect(data.accessToken).toBeDefined();
+    expect(data.refreshToken).toBeDefined();
     expect(data.user.email).toBe(testEmail);
 
     // 後続のテストで使用するためにトークンを保存
-    authToken = data.token;
+    authToken = data.accessToken;
   });
 
   // 不正な認証情報でのログイン失敗のテスト

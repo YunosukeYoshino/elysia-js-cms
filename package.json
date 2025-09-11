@@ -8,6 +8,7 @@
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir=dist",
     "seed": "bun run src/scripts/seed.ts",
+    "migrate-passwords": "bun run src/scripts/migrate-passwords.ts",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:watch": "bun test --watch",

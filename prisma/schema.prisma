@@ -11,15 +11,20 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String?
-  role      String   @default("user") // "admin" or "user"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  posts     Post[]
-  files     File[]   // ユーザーがアップロードしたファイルの関連付け
+  id                    Int          @id @default(autoincrement())
+  email                 String       @unique
+  password              String
+  name                  String?
+  role                  String       @default("user") // "admin" or "user"
+  loginAttempts         Int          @default(0)
+  lockedUntil          DateTime?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  refreshTokens        RefreshToken[]
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  posts                Post[]
+  files                File[]       // ユーザーがアップロードしたファイルの関連付け
 }
 
 model Post {
@@ -51,6 +56,19 @@ model CategoryOnPost {
   assignedAt DateTime @default(now())
 
   @@id([postId, categoryId])
+}
+
+// リフレッシュトークン管理用のモデル
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([token])
 }
 
 // ファイル管理用のモデル
