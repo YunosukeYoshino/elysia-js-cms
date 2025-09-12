@@ -66,6 +66,32 @@ async function migratePasswords() {
     console.log(`❌ 失敗: ${errorCount}人`);
     console.log(`📊 合計: ${users.length}人`);
 
+    // 監査ログの記録（本番環境対応）
+    const auditLog = {
+      timestamp: new Date().toISOString(),
+      operation: 'password_migration',
+      environment: process.env.NODE_ENV || 'development',
+      results: {
+        total: users.length,
+        successful: successCount,
+        failed: errorCount,
+        success_rate: users.length > 0 ? ((successCount / users.length) * 100).toFixed(2) + '%' : '0%',
+      },
+      deployment_info: {
+        node_version: process.version,
+        bun_version: process.versions?.bun || 'N/A',
+        script_path: __filename,
+      },
+    };
+
+    // 本番環境では構造化ログとして出力
+    if (process.env.NODE_ENV === 'production') {
+      console.log('📋 AUDIT_LOG:', JSON.stringify(auditLog));
+    } else {
+      console.log('\n📋 監査ログ:');
+      console.log(JSON.stringify(auditLog, null, 2));
+    }
+
     if (errorCount === 0) {
       console.log('\n🎉 すべてのパスワードマイグレーションが完了しました！');
     } else {

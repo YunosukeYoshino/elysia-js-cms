@@ -70,9 +70,31 @@ bun run pre-commit            # lint-staged とテストの実行（husky で使
 
 ### 環境設定
 `.env.example` を `.env` にコピーして設定：
+
+#### 基本設定
 - `DATABASE_URL`: SQLite データベースのパス
-- `JWT_SECRET`: JWT トークンの秘密鍵
+- `JWT_SECRET`: JWT トークンの秘密鍵（本番環境では強力なランダム秘密鍵を使用）
 - `PORT`: サーバーポート（デフォルト3001）
+
+#### 本番環境セキュリティ設定
+```bash
+# 強力なJWT秘密鍵（256bit推奨）
+JWT_SECRET=<strong-random-secret-minimum-32-characters>
+
+# 分散レートリミッター用Redis（オプション）
+REDIS_URL=redis://localhost:6379
+
+# バックアップ暗号化キー（パスワード移行時）
+BACKUP_ENCRYPTION_KEY=<32-byte-hex-encryption-key>
+
+# ログレベル設定（本番環境）
+LOG_LEVEL=info
+```
+
+#### セキュリティ注意事項
+- **JWT_SECRET**: 本番環境では最低32文字の強力なランダム文字列を使用
+- **REDIS_URL**: 本番環境でのスケーラブルなレート制限に推奨
+- **BACKUP_ENCRYPTION_KEY**: パスワード移行時のバックアップ暗号化用
 
 ### API ドキュメント
 サーバー実行中は `http://localhost:3001/swagger` で Swagger UI にアクセス可能

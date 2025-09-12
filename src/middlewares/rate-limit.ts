@@ -111,12 +111,12 @@ export function createRateLimit(options: RateLimitOptions, store?: RateLimitStor
   return new Elysia().derive(async ({ request, set }) => {
     const result = await limiter.check(request);
 
-    // レスポンスヘッダーを設定
+    // レスポンスヘッダーを設定（標準的なUnixタイムスタンプ形式）
     set.headers = {
       ...set.headers,
       'X-RateLimit-Limit': options.max.toString(),
       'X-RateLimit-Remaining': result.remaining.toString(),
-      'X-RateLimit-Reset': new Date(result.resetTime).toISOString(),
+      'X-RateLimit-Reset': Math.floor(result.resetTime / 1000).toString(), // Unixタイムスタンプ（秒）
     };
 
     if (!result.allowed) {
