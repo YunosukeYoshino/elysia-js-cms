@@ -1,13 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { execSync } from 'node:child_process';
 
 async function prepareDatabase(mode: 'development' | 'test' = 'development') {
   console.log(`🔧 Preparing ${mode} database...`);
 
-  const prisma = new PrismaClient({
-    log: mode === 'test' ? [] : ['warn', 'error'],
-  });
+  // Set DATABASE_URL if not already set
+  if (mode === 'test' && !process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = 'file:./test.db';
+  }
 
   try {
     // Ensure database file path is absolute and consistent
@@ -19,65 +21,29 @@ async function prepareDatabase(mode: 'development' | 'test' = 'development') {
       console.log(`🗑️ Removed existing ${mode} database`);
     }
 
-    // Apply migrations
+    // Use Prisma to push the schema to the database
+    console.log('🔄 Pushing Prisma schema to database...');
+    const env = mode === 'test' ? { ...process.env, NODE_ENV: 'test' } : process.env;
+    execSync('bunx prisma db push --skip-generate', {
+      stdio: 'inherit',
+      env,
+    });
+
+    const prisma = new PrismaClient({
+      log: mode === 'test' ? [] : ['warn', 'error'],
+    });
+
+    // Verify connection and log current database state
     await prisma.$connect();
+    
+    const tables = await prisma.$queryRaw<Array<{ name: string }>>`SELECT name FROM sqlite_master WHERE type='table';`;
+    console.log('🗃️ Current database tables:', tables.map(t => t.name).join(', '));
 
-    // Verify and log current database state
-    const tables = await prisma.$queryRaw`SELECT name FROM sqlite_master WHERE type='table';`;
-    console.log('🗃️ Current database tables:', tables);
-
-    // Additional schema validation
-    const requiredTables = ['User', 'RefreshToken'];
-    const missingTables = requiredTables.filter(
-      (table) => !tables.some((t: { name: string }) => t.name === table),
-    );
-
-    if (missingTables.length > 0) {
-      console.warn(`⚠️ Missing tables: ${missingTables.join(', ')}`);
-
-      // Optional: Attempt to create missing tables
-      if (mode === 'test') {
-        console.log('🛠️ Attempting to create missing tables...');
-        await prisma.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "User" (
-            "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            "email" TEXT NOT NULL,
-            "password" TEXT NOT NULL,
-            "name" TEXT,
-            "role" TEXT NOT NULL DEFAULT 'user',
-            "loginAttempts" INTEGER NOT NULL DEFAULT 0,
-            "lockedUntil" DATETIME,
-            "passwordResetToken" TEXT,
-            "passwordResetExpires" DATETIME,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-        `;
-        await prisma.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
-        `;
-        await prisma.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "RefreshToken" (
-            "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            "token" TEXT NOT NULL,
-            "userId" INTEGER NOT NULL,
-            "expiresAt" DATETIME NOT NULL,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE
-          );
-        `;
-        await prisma.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "RefreshToken_token_key" ON "RefreshToken"("token");
-        `;
-      }
-    }
-
+    await prisma.$disconnect();
     console.log(`✅ ${mode.toUpperCase()} database prepared successfully`);
   } catch (error) {
     console.error(`❌ Database preparation failed for ${mode}:`, error);
     process.exit(1);
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
