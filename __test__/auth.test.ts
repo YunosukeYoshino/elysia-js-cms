@@ -17,7 +17,10 @@ describe('Auth Routes', () => {
     secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
   });
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // データベースの準備（スクリプトを使用）
+    await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
+
     // テスト用にサーバーを起動
     server = app.listen(0);
   });
@@ -56,6 +59,12 @@ describe('Auth Routes', () => {
         }),
       }),
     );
+
+    // デバッグ用：レスポンス内容を出力
+    if (response.status !== 200) {
+      const errorText = await response.text();
+      console.log('Registration error:', response.status, errorText);
+    }
 
     expect(response.status).toBe(200);
     const data = await response.json();
