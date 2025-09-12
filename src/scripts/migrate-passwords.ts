@@ -75,7 +75,8 @@ async function migratePasswords() {
         total: users.length,
         successful: successCount,
         failed: errorCount,
-        success_rate: users.length > 0 ? ((successCount / users.length) * 100).toFixed(2) + '%' : '0%',
+        success_rate:
+          users.length > 0 ? `${((successCount / users.length) * 100).toFixed(2)}%` : '0%',
       },
       deployment_info: {
         node_version: process.version,
