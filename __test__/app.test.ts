@@ -1,12 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
 describe('ElysiaJS CMS API', () => {
-
   beforeAll(() => {
-
     // 環境変数がテスト用に設定されているか確認
     expect(process.env.NODE_ENV).toBe('test');
   });

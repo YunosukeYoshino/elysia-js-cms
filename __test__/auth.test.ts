@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { jwt } from '@elysiajs/jwt';
-import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';
 

@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
@@ -12,7 +11,7 @@ describe('Posts Routes', () => {
   beforeAll(async () => {
     // データベーススキーマをリセット
     await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
-    
+
     // テストユーザーを作成
     const user = await prisma.user.create({
       data: {
@@ -41,7 +40,6 @@ describe('Posts Routes', () => {
     } catch (error) {
       console.error('Error cleaning up test data:', error);
     }
-
 
     // Prismaの接続をクローズ
     await prisma.$disconnect();

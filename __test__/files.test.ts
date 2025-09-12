@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
@@ -17,7 +16,7 @@ describe('Files Routes', () => {
   beforeAll(async () => {
     // データベーススキーマをリセット
     await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
-        try {
+    try {
       // テスト用にディレクトリを作成
       await mkdir(testUploadDir, { recursive: true });
       await mkdir(testThumbsDir, { recursive: true });
@@ -25,7 +24,6 @@ describe('Files Routes', () => {
       // テスト用のファイルを作成
       const testFilePath = join(testUploadDir, 'test-file.txt');
       await writeFile(testFilePath, 'This is a test file');
-
 
       // テストユーザーを作成
       const user = await prisma.user.create({
@@ -72,7 +70,6 @@ describe('Files Routes', () => {
 
       // テスト用ディレクトリを削除
       await rm(testUploadDir, { recursive: true, force: true });
-
 
       // Prismaの接続をクローズ
       await prisma.$disconnect();

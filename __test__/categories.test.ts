@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
@@ -12,7 +11,6 @@ describe('Categories Routes', () => {
   beforeAll(async () => {
     // データベーススキーマをリセット
     await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
-    
     // 管理者ユーザーを作成
     const user = await prisma.user.create({
       data: {
