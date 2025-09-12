@@ -5,7 +5,6 @@ import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
 describe('Auth Routes', () => {
-  let server: ReturnType<App['listen']>;
   const testEmail = `test-${Date.now()}@example.com`;
   const testPassword = 'TestPass123!';
   const testName = 'Test User';
@@ -20,9 +19,6 @@ describe('Auth Routes', () => {
   beforeAll(async () => {
     // データベースの準備（スクリプトを使用）
     await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
-
-    // テスト用にサーバーを起動
-    server = app.listen(0);
   });
 
   afterAll(async () => {
@@ -37,11 +33,8 @@ describe('Auth Routes', () => {
       console.error('Error cleaning up test user:', error);
     }
 
-    // サーバーを停止
-    server.stop();
-
     // Prismaの接続をクローズ
-    prisma.$disconnect();
+    await prisma.$disconnect();
   });
 
   // ユーザー登録のテスト

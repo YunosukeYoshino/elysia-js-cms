@@ -6,7 +6,6 @@ import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
 describe('Files Routes', () => {
-  let server: ReturnType<App['listen']>;
   const testEmail = `test-files-${Date.now()}@example.com`;
   const testPassword = 'password123';
   const testName = 'Files Test User';
@@ -16,7 +15,9 @@ describe('Files Routes', () => {
   const testThumbsDir = './test-uploads/thumbnails';
 
   beforeAll(async () => {
-    try {
+    // データベーススキーマをリセット
+    await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
+        try {
       // テスト用にディレクトリを作成
       await mkdir(testUploadDir, { recursive: true });
       await mkdir(testThumbsDir, { recursive: true });
@@ -25,8 +26,6 @@ describe('Files Routes', () => {
       const testFilePath = join(testUploadDir, 'test-file.txt');
       await writeFile(testFilePath, 'This is a test file');
 
-      // テスト用にサーバーを起動
-      server = app.listen(0);
 
       // テストユーザーを作成
       const user = await prisma.user.create({
@@ -74,8 +73,6 @@ describe('Files Routes', () => {
       // テスト用ディレクトリを削除
       await rm(testUploadDir, { recursive: true, force: true });
 
-      // サーバーを停止
-      server.stop();
 
       // Prismaの接続をクローズ
       await prisma.$disconnect();
