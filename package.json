@@ -12,20 +12,18 @@
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:watch": "bun test --watch",
-    "format": "biome format --write .",
-    "lint": "biome lint .",
-    "check": "biome check .",
-    "lint:fix": "biome check --apply .",
+    "format": "bunx biome format --write .",
+    "lint": "bunx biome lint .",
+    "check": "bunx biome check .",
+    "lint:fix": "bunx biome check --apply .",
+    "typecheck": "bunx tsc --noEmit --skipLibCheck",
     "prepare-db:dev": "bun scripts/prepare-db.ts development",
     "prepare-db:test": "NODE_ENV=test bun scripts/prepare-db.ts test",
     "prepare": "husky",
     "pre-commit": "lint-staged && bun test"
   },
   "lint-staged": {
-    "*.{js,ts}": [
-      "biome check --apply",
-      "biome format --write"
-    ]
+    "*.{js,ts}": ["biome check --apply", "biome format --write"]
   },
   "keywords": [
     "elysiajs",

@@ -10,6 +10,15 @@ dist
 # Testing
 coverage
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+dev.db
+test.db
+prisma/dev.db
+prisma/test.db
+
 # Environment variables
 .env
 .env.local
