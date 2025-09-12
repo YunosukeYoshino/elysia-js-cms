@@ -10,6 +10,7 @@ import {
   resetLoginAttempts,
   revokeAllRefreshTokens,
   revokeRefreshToken,
+  revokeRefreshTokenSecure,
   validateRefreshToken,
 } from '../utils/auth-security';
 import {
@@ -244,12 +245,22 @@ export const authRouter = new Elysia({ prefix: '/auth' })
       if (logoutAll) {
         // 全デバイスからログアウト
         await revokeAllRefreshTokens(user.id);
+        return { message: 'すべてのデバイスからログアウトしました' };
       } else if (refreshToken) {
-        // 特定のリフレッシュトークンのみ削除
-        await revokeRefreshToken(refreshToken);
-      }
+        // セキュリティ強化: トークンの所有者を検証して削除
+        const revoked = await revokeRefreshTokenSecure(refreshToken, user.id);
 
-      return { message: 'ログアウトしました' };
+        if (!revoked) {
+          set.status = 400;
+          return { error: '指定されたリフレッシュトークンは無効または他のユーザーに属しています' };
+        }
+
+        return { message: 'ログアウトしました' };
+      } else {
+        // refreshToken が指定されていない場合
+        set.status = 400;
+        return { error: 'リフレッシュトークンまたは logoutAll フラグが必要です' };
+      }
     },
     {
       body: t.Object({

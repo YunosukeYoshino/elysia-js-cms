@@ -7,6 +7,7 @@
 
 import prisma from '../lib/prisma';
 import { hashPassword } from '../utils/password';
+import { createSecureBackup, secureDeleteBackup } from '../utils/secure-backup';
 
 async function migratePasswords() {
   console.log('🔄 パスワードマイグレーション開始...');
@@ -79,9 +80,9 @@ async function migratePasswords() {
   }
 }
 
-// バックアップ用のスクリプト
+// セキュアバックアップ用のスクリプト
 async function createBackup() {
-  console.log('💾 ユーザーデータのバックアップを作成中...');
+  console.log('💾 ユーザーデータのセキュアバックアップを作成中...');
 
   try {
     const users = await prisma.user.findMany({
@@ -96,32 +97,29 @@ async function createBackup() {
       },
     });
 
-    const backupData = {
-      timestamp: new Date().toISOString(),
-      users: users,
-    };
-
-    const fs = require('node:fs');
-    const backupPath = `backup-users-${Date.now()}.json`;
-
-    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
-    console.log(`✅ バックアップが作成されました: ${backupPath}`);
+    // セキュアバックアップを作成（暗号化、パスワード除外）
+    const backupPath = await createSecureBackup(users, {
+      encrypt: true,
+      includePasswords: false, // セキュリティ強化: パスワードは含めない
+      backupPath: `secure-backup-users-${Date.now()}.enc`,
+    });
 
     return backupPath;
   } catch (error) {
-    console.error('❌ バックアップ作成に失敗しました:', error);
+    console.error('❌ セキュアバックアップ作成に失敗しました:', error);
     throw error;
   }
 }
 
 async function main() {
-  console.log('🚀 パスワードマイグレーションツール');
-  console.log('=====================================');
+  console.log('🚀 パスワードマイグレーションツール (セキュリティ強化版)');
+  console.log('======================================================');
 
   // 引数を確認
   const args = process.argv.slice(2);
   const shouldBackup = !args.includes('--no-backup');
   const dryRun = args.includes('--dry-run');
+  const cleanupBackup = args.includes('--cleanup-backup');
 
   if (dryRun) {
     console.log('🔍 ドライラン モード (実際の変更は行いません)');
@@ -149,13 +147,32 @@ async function main() {
     return;
   }
 
-  // バックアップ作成
-  if (shouldBackup) {
-    await createBackup();
-  }
+  let backupPath: string | null = null;
 
-  // マイグレーション実行
-  await migratePasswords();
+  try {
+    // セキュアバックアップ作成
+    if (shouldBackup) {
+      backupPath = await createBackup();
+    }
+
+    // マイグレーション実行
+    await migratePasswords();
+
+    // 成功時のバックアップクリーンアップ
+    if (cleanupBackup && backupPath) {
+      console.log('\n🧹 マイグレーション完了後のバックアップクリーンアップ...');
+      await secureDeleteBackup(backupPath);
+    } else if (backupPath) {
+      console.log(`\n💾 バックアップファイルが保持されています: ${backupPath}`);
+      console.log('🔐 暗号化されたバックアップの暗号化キーを安全に保管してください');
+    }
+  } catch (error) {
+    console.error('💥 マイグレーション中にエラーが発生しました:', error);
+    if (backupPath) {
+      console.log(`💾 バックアップファイル: ${backupPath} - エラー調査のため保持されています`);
+    }
+    process.exit(1);
+  }
 }
 
 if (require.main === module) {

@@ -153,6 +153,31 @@ export async function revokeRefreshToken(token: string): Promise<void> {
 }
 
 /**
+ * リフレッシュトークンの所有者を検証して削除
+ * セキュリティ強化: トークンが指定されたユーザーに属することを確認
+ *
+ * @param token - 削除するリフレッシュトークン
+ * @param userId - トークンの所有者として期待されるユーザーID
+ * @returns 削除が成功したかどうか
+ */
+export async function revokeRefreshTokenSecure(token: string, userId: number): Promise<boolean> {
+  try {
+    const deletedCount = await prisma.refreshToken.deleteMany({
+      where: {
+        token,
+        userId, // 所有者検証
+      },
+    });
+
+    // deletedCount.count > 0 の場合は削除成功
+    return deletedCount.count > 0;
+  } catch {
+    // エラーの場合は削除失敗
+    return false;
+  }
+}
+
+/**
  * 期限切れのリフレッシュトークンをクリーンアップ
  */
 export async function cleanupExpiredTokens(): Promise<void> {

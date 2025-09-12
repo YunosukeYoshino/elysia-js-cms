@@ -1,22 +1,16 @@
 /**
  * レート制限ミドルウェア
  * ブルートフォース攻撃やAPI乱用を防ぐためのレート制限機能を提供
+ * セキュリティ強化とメモリリーク修正版
  */
 
 import { Elysia } from 'elysia';
-
-interface RequestLike {
-  headers: Record<string, string | undefined>;
-  ip?: string;
-  url?: string;
-}
-
-interface RateLimitStore {
-  [key: string]: {
-    count: number;
-    resetTime: number;
-  };
-}
+import { extractClientIP, generateRateLimitKey, type RequestLike } from '../utils/network';
+import {
+  createRateLimitStore,
+  type RateLimitData,
+  type RateLimitStore,
+} from '../utils/rate-limit-store';
 
 export interface RateLimitOptions {
   windowMs: number; // 時間窓（ミリ秒）
@@ -27,98 +21,95 @@ export interface RateLimitOptions {
 }
 
 class RateLimiter {
-  private store: RateLimitStore = {};
+  private store: RateLimitStore;
   private options: Required<RateLimitOptions>;
 
-  constructor(options: RateLimitOptions) {
+  constructor(options: RateLimitOptions, store?: RateLimitStore) {
     this.options = {
       windowMs: options.windowMs,
       max: options.max,
       message:
         options.message || 'リクエスト制限に達しました。しばらく待ってから再試行してください。',
-      keyGenerator:
-        options.keyGenerator ||
-        ((request: RequestLike) => {
-          // IPアドレスを取得（プロキシ環境を考慮）
-          const forwarded = request.headers['x-forwarded-for'];
-          const ip = forwarded
-            ? forwarded.split(',')[0].trim()
-            : request.headers['x-real-ip'] || request.ip || 'unknown';
-          return ip;
-        }),
+      keyGenerator: options.keyGenerator || extractClientIP, // 共通のIP抽出関数を使用
       skipSuccessfulRequests: options.skipSuccessfulRequests || false,
     };
 
-    // 定期的に古いエントリをクリーンアップ
-    setInterval(() => {
-      this.cleanup();
-    }, this.options.windowMs);
+    // Use provided store or create default
+    this.store = store || createRateLimitStore();
   }
 
-  private cleanup() {
-    const now = Date.now();
-    for (const key of Object.keys(this.store)) {
-      if (this.store[key].resetTime <= now) {
-        delete this.store[key];
-      }
-    }
+  /**
+   * リソースのクリーンアップ（メモリリーク対策）
+   */
+  async destroy(): Promise<void> {
+    await this.store.destroy();
   }
 
-  check(request: RequestLike): { allowed: boolean; remaining: number; resetTime: number } {
+  async check(
+    request: RequestLike,
+  ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
     const key = this.options.keyGenerator(request);
     const now = Date.now();
 
-    if (!this.store[key] || this.store[key].resetTime <= now) {
-      this.store[key] = {
+    const existing = await this.store.get(key);
+
+    if (!existing || existing.resetTime <= now) {
+      const newData: RateLimitData = {
         count: 1,
         resetTime: now + this.options.windowMs,
       };
+
+      await this.store.set(key, newData, this.options.windowMs);
+
       return {
         allowed: true,
         remaining: this.options.max - 1,
-        resetTime: this.store[key].resetTime,
+        resetTime: newData.resetTime,
       };
     }
 
-    const current = this.store[key];
-
-    if (current.count >= this.options.max) {
+    if (existing.count >= this.options.max) {
       return {
         allowed: false,
         remaining: 0,
-        resetTime: current.resetTime,
+        resetTime: existing.resetTime,
       };
     }
 
-    current.count++;
-    return {
-      allowed: true,
-      remaining: this.options.max - current.count,
-      resetTime: current.resetTime,
-    };
-  }
+    try {
+      const newCount = await this.store.increment(key);
+      return {
+        allowed: true,
+        remaining: this.options.max - newCount,
+        resetTime: existing.resetTime,
+      };
+    } catch {
+      // Fallback to manual increment if store doesn't support atomic increment
+      existing.count++;
+      await this.store.set(key, existing, existing.resetTime - now);
 
-  increment(request: RequestLike) {
-    const key = this.options.keyGenerator(request);
-    if (this.store[key]) {
-      this.store[key].count++;
+      return {
+        allowed: true,
+        remaining: this.options.max - existing.count,
+        resetTime: existing.resetTime,
+      };
     }
   }
 
-  reset(request: RequestLike) {
+  async reset(request: RequestLike): Promise<void> {
     const key = this.options.keyGenerator(request);
-    delete this.store[key];
+    await this.store.delete(key);
   }
 }
 
 /**
  * レート制限ミドルウェアを作成
  */
-export function createRateLimit(options: RateLimitOptions) {
-  const limiter = new RateLimiter(options);
+export function createRateLimit(options: RateLimitOptions, store?: RateLimitStore) {
+  const limiter = new RateLimiter(options, store);
 
   return new Elysia().derive(async ({ request, set }) => {
-    const result = limiter.check(request);
+    const result = await limiter.check(request);
 
     // レスポンスヘッダーを設定
     set.headers = {
@@ -135,7 +126,6 @@ export function createRateLimit(options: RateLimitOptions) {
 
     return {
       rateLimit: {
-        increment: () => limiter.increment(request),
         reset: () => limiter.reset(request),
       },
     };
@@ -149,14 +139,7 @@ export const authRateLimit = createRateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 5, // 15分間に5回まで
   message: 'ログイン試行回数が上限に達しました。15分後に再試行してください。',
-  keyGenerator: (request: RequestLike) => {
-    // IPアドレスベースの制限
-    const forwarded = request.headers['x-forwarded-for'];
-    const ip = forwarded
-      ? forwarded.split(',')[0].trim()
-      : request.headers['x-real-ip'] || request.ip || 'unknown';
-    return `auth:${ip}`;
-  },
+  keyGenerator: (request: RequestLike) => generateRateLimitKey('auth', request),
 });
 
 /**
@@ -175,11 +158,5 @@ export const registerRateLimit = createRateLimit({
   windowMs: 60 * 60 * 1000, // 1時間
   max: 3, // 1時間に3回まで
   message: 'アカウント作成の制限に達しました。1時間後に再試行してください。',
-  keyGenerator: (request: RequestLike) => {
-    const forwarded = request.headers['x-forwarded-for'];
-    const ip = forwarded
-      ? forwarded.split(',')[0].trim()
-      : request.headers['x-real-ip'] || request.ip || 'unknown';
-    return `register:${ip}`;
-  },
+  keyGenerator: (request: RequestLike) => generateRateLimitKey('register', request),
 });
