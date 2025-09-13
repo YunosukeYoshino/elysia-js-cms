@@ -1,18 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import type { App } from '../src/index';
 import app from '../src/index';
 import prisma from '../src/lib/prisma';
 
 describe('Posts Routes', () => {
-  let server: ReturnType<App['listen']>;
   const testEmail = `test-posts-${Date.now()}@example.com`;
   const testPassword = 'password123';
   const testName = 'Post Test User';
   let userId: number;
 
   beforeAll(async () => {
-    // テスト用にサーバーを起動
-    server = app.listen(0);
+    // データベーススキーマをリセット
+    await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
 
     // テストユーザーを作成
     const user = await prisma.user.create({
@@ -42,9 +40,6 @@ describe('Posts Routes', () => {
     } catch (error) {
       console.error('Error cleaning up test data:', error);
     }
-
-    // サーバーを停止
-    server.stop();
 
     // Prismaの接続をクローズ
     await prisma.$disconnect();

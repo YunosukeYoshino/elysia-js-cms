@@ -1,7 +1,24 @@
-import { jwt } from '@elysiajs/jwt';
 import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authMiddleware } from '../middlewares/auth';
+import { authRateLimit, registerRateLimit } from '../middlewares/rate-limit';
+import {
+  AUTH_CONFIG,
+  checkAccountLockByEmail,
+  createRefreshToken,
+  incrementLoginAttempts,
+  resetLoginAttempts,
+  revokeAllRefreshTokens,
+  revokeRefreshToken,
+  revokeRefreshTokenSecure,
+  validateRefreshToken,
+} from '../utils/auth-security';
+import {
+  generateSecureToken,
+  hashPassword,
+  validatePasswordStrength,
+  verifyPassword,
+} from '../utils/password';
 
 /**
  * 認証関連のルーティング定義
@@ -10,6 +27,7 @@ import { authMiddleware } from '../middlewares/auth';
 export const authRouter = new Elysia({ prefix: '/auth' })
   .use(authMiddleware)
   // ユーザー登録エンドポイント
+  .use(registerRateLimit)
   .post(
     '/register',
     async ({ body, set }) => {
@@ -25,15 +43,26 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         return { error: 'すでに登録されているメールアドレスです' };
       }
 
+      // パスワード強度チェック
+      const passwordValidation = validatePasswordStrength(password);
+      if (!passwordValidation.isValid) {
+        set.status = 400;
+        return {
+          error: 'パスワードが要件を満たしていません',
+          details: passwordValidation.errors,
+        };
+      }
+
       try {
-        // ハッシュ化はバックエンドで行うべきですが、デモなので簡略化
-        // 実際の実装では bcrypt や Argon2 などを使用してください
+        // パスワードをハッシュ化
+        const { hash } = await hashPassword(password);
+
         const user = await prisma.user.create({
           data: {
             email,
-            password, // 本番では必ずハッシュ化してください！
+            password: hash,
             name,
-            role: 'user', // デフォルトロールを明示的に設定
+            role: 'user',
           },
           select: {
             id: true,
@@ -47,7 +76,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
           message: 'ユーザー登録が完了しました',
           user,
         };
-      } catch (error) {
+      } catch (_error) {
         set.status = 500;
         return { error: 'ユーザー登録に失敗しました' };
       }
@@ -55,7 +84,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     {
       body: t.Object({
         email: t.String({ format: 'email' }),
-        password: t.String({ minLength: 6 }),
+        password: t.String({ minLength: 8, maxLength: 128 }),
         name: t.Optional(t.String()),
       }),
       detail: {
@@ -66,11 +95,13 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     },
   )
   // ログインエンドポイント
+  .use(authRateLimit)
   .post(
     '/login',
     async ({ body, set, jwt }) => {
       const { email, password } = body;
 
+      // ユーザーの存在確認
       const user = await prisma.user.findUnique({
         where: { email },
       });
@@ -80,23 +111,48 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         return { error: 'メールアドレスまたはパスワードが正しくありません' };
       }
 
-      // 実際の実装ではハッシュを検証します
-      // このデモでは簡略化のため平文で比較しています
-      const passwordValid = user.password === password;
+      // アカウントロック状態をチェック
+      const { isLocked, lockedUntil } = await checkAccountLockByEmail(email);
+      if (isLocked && lockedUntil) {
+        set.status = 423;
+        return {
+          error: `アカウントがロックされています。${lockedUntil.toLocaleString('ja-JP')}以降に再試行してください。`,
+        };
+      }
+
+      // パスワード検証
+      const passwordValid = await verifyPassword(password, user.password);
 
       if (!passwordValid) {
+        // ログイン失敗時の処理
+        await incrementLoginAttempts(user.id);
         set.status = 401;
         return { error: 'メールアドレスまたはパスワードが正しくありません' };
       }
 
-      // JWTトークンを生成
-      const token = await jwt.sign({
-        userId: user.id,
-        role: user.role,
-      });
+      // ログイン成功時の処理
+      await resetLoginAttempts(user.id);
+
+      // アクセストークンを生成（短い有効期限）
+      const accessToken = await jwt.sign(
+        {
+          userId: user.id,
+          role: user.role,
+          type: 'access',
+        },
+        {
+          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`,
+        },
+      );
+
+      // リフレッシュトークンを生成
+      const refreshToken = generateSecureToken(64);
+      await createRefreshToken(user.id, refreshToken);
 
       return {
-        token,
+        accessToken,
+        refreshToken,
+        expiresIn: AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60, // 秒単位
         user: {
           id: user.id,
           email: user.email,
@@ -114,6 +170,108 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         tags: ['auth'],
         summary: 'ログイン',
         description: 'ユーザー認証を行いJWTトークンを取得します',
+      },
+    },
+  )
+  // リフレッシュトークンエンドポイント
+  .post(
+    '/refresh',
+    async ({ body, set, jwt }) => {
+      const { refreshToken } = body;
+
+      // リフレッシュトークンを検証
+      const tokenData = await validateRefreshToken(refreshToken);
+      if (!tokenData) {
+        set.status = 401;
+        return { error: '無効なリフレッシュトークンです' };
+      }
+
+      // ユーザー情報を取得
+      const user = await prisma.user.findUnique({
+        where: { id: tokenData.userId },
+        select: { id: true, email: true, name: true, role: true },
+      });
+
+      if (!user) {
+        set.status = 401;
+        return { error: 'ユーザーが見つかりません' };
+      }
+
+      // 新しいアクセストークンを生成
+      const accessToken = await jwt.sign(
+        {
+          userId: user.id,
+          role: user.role,
+          type: 'access',
+        },
+        {
+          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`,
+        },
+      );
+
+      // 古いリフレッシュトークンを削除し、新しいものを生成
+      await revokeRefreshToken(refreshToken);
+      const newRefreshToken = generateSecureToken(64);
+      await createRefreshToken(user.id, newRefreshToken);
+
+      return {
+        accessToken,
+        refreshToken: newRefreshToken,
+        expiresIn: AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+      };
+    },
+    {
+      body: t.Object({
+        refreshToken: t.String(),
+      }),
+      detail: {
+        tags: ['auth'],
+        summary: 'トークンリフレッシュ',
+        description: 'リフレッシュトークンを使用して新しいアクセストークンを取得します',
+      },
+    },
+  )
+  // ログアウトエンドポイント
+  .post(
+    '/logout',
+    async ({ body, user, set }) => {
+      if (!user) {
+        set.status = 401;
+        return { error: '認証が必要です' };
+      }
+
+      const { refreshToken, logoutAll } = body;
+
+      if (logoutAll) {
+        // 全デバイスからログアウト
+        await revokeAllRefreshTokens(user.id);
+        return { message: 'すべてのデバイスからログアウトしました' };
+      } else if (refreshToken) {
+        // セキュリティ強化: トークンの所有者を検証して削除
+        const revoked = await revokeRefreshTokenSecure(refreshToken, user.id);
+
+        if (!revoked) {
+          set.status = 400;
+          return { error: '指定されたリフレッシュトークンは無効または他のユーザーに属しています' };
+        }
+
+        return { message: 'ログアウトしました' };
+      } else {
+        // refreshToken が指定されていない場合
+        set.status = 400;
+        return { error: 'リフレッシュトークンまたは logoutAll フラグが必要です' };
+      }
+    },
+    {
+      body: t.Object({
+        refreshToken: t.Optional(t.String()),
+        logoutAll: t.Optional(t.Boolean()),
+      }),
+      detail: {
+        tags: ['auth'],
+        summary: 'ログアウト',
+        description: 'リフレッシュトークンを無効化してログアウトします',
+        security: [{ bearerAuth: [] }],
       },
     },
   )
