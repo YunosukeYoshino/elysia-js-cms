@@ -1,5 +1,7 @@
 # ElysiaJS CMS API
 
+<img width="1918" height="1068" alt="image" src="https://github.com/user-attachments/assets/e47bab31-458e-4dbe-add6-90ba0f9c06a3" />
+
 ElysiaJS を使用した軽量な CMS API です。
 
 ## 機能
