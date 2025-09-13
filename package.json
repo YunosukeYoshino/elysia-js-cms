@@ -15,7 +15,7 @@
     "format": "bunx biome format --write .",
     "lint": "bunx biome lint .",
     "check": "bunx biome check .",
-    "lint:fix": "bunx biome check --apply .",
+    "lint:fix": "bunx biome check --write .",
     "typecheck": "bunx tsc --noEmit --skipLibCheck",
     "prepare-db:dev": "bun scripts/prepare-db.ts development",
     "prepare-db:test": "NODE_ENV=test bun scripts/prepare-db.ts test",
@@ -24,7 +24,7 @@
   },
   "lint-staged": {
     "*.{js,ts}": [
-      "biome check --apply",
+      "biome check --write .",
       "biome format --write"
     ]
   },

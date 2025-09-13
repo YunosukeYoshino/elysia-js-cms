@@ -1,5 +1,4 @@
 import { mkdir, unlink } from 'node:fs/promises';
-import type { IncomingMessage } from 'node:http';
 import { join } from 'node:path';
 import type { User } from '@prisma/client';
 import { Elysia, t } from 'elysia';
@@ -8,7 +7,7 @@ import mime from 'mime-types';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
-import { authenticated } from '../middlewares/auth';
+import { authMiddleware } from '../middlewares/auth';
 
 /**
  * ファイルアップロードのドメインインターフェース
@@ -40,18 +39,6 @@ interface FileUploadResponse {
 }
 
 /**
- * Elysiaのリクエストコンテキストの型定義
- */
-interface RequestContext {
-  request: { raw: IncomingMessage };
-  store: { user: User };
-  set: {
-    status: number;
-    headers: Record<string, string>;
-  };
-}
-
-/**
  * ファイル管理関連のルーティング定義
  * DDDアプローチに基づき、プレゼンテーション層としてのルーティングを実装
  */
@@ -69,18 +56,25 @@ try {
 }
 
 export const filesRouter = new Elysia({ prefix: '/files' })
-  .use(authenticated)
+  .use(authMiddleware)
   .post(
     '/upload',
-    async ({ request, store, set }: RequestContext) => {
+    async ({
+      request,
+      user,
+      set,
+    }: {
+      request: Request;
+      user: User | null;
+      set: { status: number };
+    }) => {
       try {
         // 認証済みユーザーのIDを取得
-        const userId = store.user.id;
-
-        if (!userId) {
+        if (!user) {
           set.status = 401;
           return { success: false, message: 'Unauthorized' };
         }
+        const userId = Number(user.id);
 
         // アップロードディレクトリの作成
         try {
@@ -101,7 +95,8 @@ export const filesRouter = new Elysia({ prefix: '/files' })
 
         return new Promise<FileUploadResponse>((resolve) => {
           // formidableとの型互換性を保ちながら、型安全な実装を行う
-          form.parse(request.raw, async (err: Error | null, _fields: Fields, files: Files) => {
+          // ElysiaではRequestオブジェクトを直接渡す
+          form.parse(request, async (err: Error | null, _fields: Fields, files: Files) => {
             if (err) {
               console.error('ファイルのアップロードに失敗しました:', err);
               set.status = 500;
@@ -138,7 +133,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
                   mimeType,
                   filePath: uploadedFile.filepath,
                   fileSize: uploadedFile.size,
-                  userId: store.user.id,
+                  userId: userId,
                 },
               });
 
@@ -368,19 +363,19 @@ export const filesRouter = new Elysia({ prefix: '/files' })
     async ({
       params,
       set,
-      store,
+      user,
     }: {
       params: { id: string };
       set: { status: number };
-      store: { user: User };
+      user: User | null;
     }) => {
       try {
         // 認証チェック
-        const userId = store.user.id;
-        if (!userId) {
+        if (!user) {
           set.status = 401;
           return { success: false, message: 'Unauthorized' };
         }
+        const userId = Number(user.id);
 
         const fileId = Number(params.id);
 
@@ -395,7 +390,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
         }
 
         // 所有者チェック（管理者でない場合）
-        if (file.userId !== userId && store.user.role !== 'admin') {
+        if (file.userId !== userId && user.role !== 'admin') {
           set.status = 403;
           return { success: false, message: 'Permission denied' };
         }

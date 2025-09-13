@@ -1,7 +1,7 @@
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { execSync } from 'node:child_process';
 
 async function prepareDatabase(mode: 'development' | 'test' = 'development') {
   console.log(`🔧 Preparing ${mode} database...`);
@@ -35,9 +35,11 @@ async function prepareDatabase(mode: 'development' | 'test' = 'development') {
 
     // Verify connection and log current database state
     await prisma.$connect();
-    
-    const tables = await prisma.$queryRaw<Array<{ name: string }>>`SELECT name FROM sqlite_master WHERE type='table';`;
-    console.log('🗃️ Current database tables:', tables.map(t => t.name).join(', '));
+
+    const tables = await prisma.$queryRaw<
+      Array<{ name: string }>
+    >`SELECT name FROM sqlite_master WHERE type='table';`;
+    console.log('🗃️ Current database tables:', tables.map((t) => t.name).join(', '));
 
     await prisma.$disconnect();
     console.log(`✅ ${mode.toUpperCase()} database prepared successfully`);
