@@ -59,7 +59,7 @@ export class PostService extends BaseService {
           where: whereClause,
           include: {
             author: {
-              select: { id: true, name: true, email: true },
+              select: { id: true, name: true },
             },
             categories: {
               include: {
@@ -105,7 +105,7 @@ export class PostService extends BaseService {
         where: { id },
         include: {
           author: {
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true },
           },
           categories: {
             include: {
@@ -156,7 +156,7 @@ export class PostService extends BaseService {
         },
         include: {
           author: {
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true },
           },
           categories: {
             include: {
