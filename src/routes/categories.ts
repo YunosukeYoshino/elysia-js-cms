@@ -1,22 +1,19 @@
-import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
-import prisma from '../lib/prisma';
+import { containerPlugin, type ServiceContainer } from '../container';
 import { authenticated, authMiddleware, isAdmin } from '../middlewares/auth';
 
-// カテゴリ関連のルーティング定義
+/**
+ * カテゴリ関連のルーティング定義
+ * サービス層を使用したプレゼンテーション層の実装
+ */
 export const categoriesRouter = new Elysia({ prefix: '/categories' })
+  .use(containerPlugin)
   .use(authMiddleware)
   // 全てのカテゴリを取得
   .get(
     '/',
-    async () => {
-      const categories = await prisma.category.findMany({
-        orderBy: {
-          name: 'asc',
-        },
-      });
-
-      return { data: categories };
+    async ({ services }: { services: ServiceContainer }) => {
+      return await services.category.getCategories();
     },
     {
       detail: {
@@ -29,18 +26,23 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
   // IDでカテゴリを取得
   .get(
     '/:id',
-    async ({ params, set }) => {
-      const { id } = params;
-      const category = await prisma.category.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
+    async ({
+      params,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
+      const categoryId = Number.parseInt(params.id, 10);
+      const result = await services.category.getCategoryById(categoryId);
 
-      if (!category) {
+      if (!result.success) {
         set.status = 404;
-        return { error: 'カテゴリが見つかりません' };
       }
 
-      return category;
+      return result;
     },
     {
       params: t.Object({
@@ -56,32 +58,23 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
   // 新しいカテゴリを作成（管理者のみ）
   .post(
     '/',
-    async ({ body, set }) => {
-      const { name, slug } = body;
+    async ({
+      body,
+      set,
+      services,
+    }: {
+      body: { name: string; slug: string };
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
+      const result = await services.category.createCategory(body);
 
-      // スラッグの重複チェック
-      const existingCategory = await prisma.category.findUnique({
-        where: { slug },
-      });
-
-      if (existingCategory) {
-        set.status = 400;
-        return { error: 'このスラッグは既に使用されています' };
-      }
-
-      try {
-        const category = await prisma.category.create({
-          data: {
-            name,
-            slug,
-          },
-        });
-
+      if (result.success) {
         set.status = 201;
-        return category;
-      } catch (error) {
+        return result.data;
+      } else {
         set.status = 400;
-        return { error: 'カテゴリの作成に失敗しました', details: error };
+        return { error: result.error };
       }
     },
     {
@@ -101,46 +94,29 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
   // カテゴリを更新（管理者のみ）
   .put(
     '/:id',
-    async ({ params, body, set }) => {
-      const { id } = params;
-      const { name, slug } = body;
+    async ({
+      params,
+      body,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      body: { name?: string; slug?: string };
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
+      const categoryId = Number.parseInt(params.id, 10);
+      const result = await services.category.updateCategory(categoryId, body);
 
-      // カテゴリの存在確認
-      const category = await prisma.category.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
-
-      if (!category) {
-        set.status = 404;
-        return { error: 'カテゴリが見つかりません' };
-      }
-
-      // スラッグが変更される場合は重複チェック
-      if (slug && slug !== category.slug) {
-        const existingCategory = await prisma.category.findUnique({
-          where: { slug },
-        });
-
-        if (existingCategory) {
+      if (!result.success) {
+        if (result.error === 'カテゴリが見つかりません') {
+          set.status = 404;
+        } else {
           set.status = 400;
-          return { error: 'このスラッグは既に使用されています' };
         }
       }
 
-      try {
-        const updatedCategory = await prisma.category.update({
-          where: { id: Number.parseInt(id, 10) },
-          data: {
-            name,
-            slug,
-          },
-        });
-
-        return updatedCategory;
-      } catch (error) {
-        set.status = 400;
-        return { error: 'カテゴリの更新に失敗しました', details: error };
-      }
+      return result;
     },
     {
       params: t.Object({
@@ -162,41 +138,27 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
   // カテゴリを削除（管理者のみ）
   .delete(
     '/:id',
-    async ({ params, set }) => {
-      const { id } = params;
+    async ({
+      params,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
+      const categoryId = Number.parseInt(params.id, 10);
+      const result = await services.category.deleteCategory(categoryId);
 
-      // カテゴリの存在確認
-      const category = await prisma.category.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
-
-      if (!category) {
-        set.status = 404;
-        return { error: 'カテゴリが見つかりません' };
+      if (!result.success) {
+        if (result.error === 'カテゴリが見つかりません') {
+          set.status = 404;
+        } else {
+          set.status = 400;
+        }
       }
 
-      // このカテゴリに関連付けられた投稿の確認
-      const postsWithCategory = await prisma.categoryOnPost.findFirst({
-        where: { categoryId: Number.parseInt(id, 10) },
-      });
-
-      if (postsWithCategory) {
-        set.status = 400;
-        return {
-          error: 'このカテゴリは投稿に使用されているため削除できません',
-        };
-      }
-
-      try {
-        await prisma.category.delete({
-          where: { id: Number.parseInt(id, 10) },
-        });
-
-        return { message: 'カテゴリを削除しました' };
-      } catch (error) {
-        set.status = 400;
-        return { error: 'カテゴリの削除に失敗しました', details: error };
-      }
+      return result;
     },
     {
       params: t.Object({
@@ -214,74 +176,34 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
   // 特定カテゴリの投稿を取得
   .get(
     '/:id/posts',
-    async ({ params, query, set }) => {
-      const { id } = params;
-      const { published, take = 10, skip = 0 } = query;
+    async ({
+      params,
+      query,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      query: { published?: string; take?: string; skip?: string };
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
+      const categoryId = Number.parseInt(params.id, 10);
+      const published =
+        query.published === 'true' ? true : query.published === 'false' ? false : undefined;
+      const take = Number.parseInt(query.take as string, 10) || 10;
+      const skip = Number.parseInt(query.skip as string, 10) || 0;
 
-      // カテゴリの存在確認
-      const category = await prisma.category.findUnique({
-        where: { id: Number.parseInt(id, 10) },
+      const result = await services.category.getPostsByCategory(categoryId, {
+        published,
+        take,
+        skip,
       });
 
-      if (!category) {
+      if (!result.success) {
         set.status = 404;
-        return { error: 'カテゴリが見つかりません' };
       }
 
-      const whereClause: Prisma.PostWhereInput = {
-        categories: {
-          some: {
-            categoryId: Number.parseInt(id, 10),
-          },
-        },
-      };
-
-      // 公開状態でフィルタリング
-      if (published !== undefined) {
-        whereClause.published = published === 'true';
-      }
-
-      const [posts, total] = await Promise.all([
-        prisma.post.findMany({
-          where: whereClause,
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            categories: {
-              include: {
-                category: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: Number.parseInt(take as string, 10),
-          skip: Number.parseInt(skip as string, 10),
-        }),
-        prisma.post.count({ where: whereClause }),
-      ]);
-
-      // カテゴリの形式を整える
-      const formattedPosts = posts.map((post) => ({
-        ...post,
-        categories: post.categories.map((c) => c.category),
-      }));
-
-      return {
-        data: formattedPosts,
-        meta: {
-          total,
-          category,
-          skip: Number.parseInt(skip as string, 10),
-          take: Number.parseInt(take as string, 10),
-        },
-      };
+      return result;
     },
     {
       params: t.Object({

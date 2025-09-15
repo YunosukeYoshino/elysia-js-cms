@@ -1,78 +1,35 @@
-import type { Prisma } from '@prisma/client';
+import type { User } from '@prisma/client';
 import { Elysia, t } from 'elysia';
-import prisma from '../lib/prisma';
+import { containerPlugin, type ServiceContainer } from '../container';
 import { authenticated, authMiddleware } from '../middlewares/auth';
 
-// 投稿関連のルーティング定義
+/**
+ * 投稿関連のルーティング定義
+ * サービス層を使用したプレゼンテーション層の実装
+ */
 export const postsRouter = new Elysia({ prefix: '/posts' })
+  .use(containerPlugin)
   .use(authMiddleware)
   // 全ての投稿を取得
   .get(
     '/',
-    async ({ query }) => {
-      const { published, authorId, categoryId, take = 10, skip = 0 } = query;
-
-      const whereClause: Prisma.PostWhereInput = {};
-
-      // 公開状態でフィルタリング
-      if (published !== undefined) {
-        whereClause.published = published === 'true';
-      }
-
-      // 著者IDでフィルタリング
-      if (authorId) {
-        whereClause.authorId = Number.parseInt(authorId as string, 10);
-      }
-
-      // カテゴリIDでフィルタリング
-      if (categoryId) {
-        whereClause.categories = {
-          some: {
-            categoryId: Number.parseInt(categoryId as string, 10),
-          },
-        };
-      }
-
-      const [posts, total] = await Promise.all([
-        prisma.post.findMany({
-          where: whereClause,
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            categories: {
-              include: {
-                category: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: Number.parseInt(take as string, 10),
-          skip: Number.parseInt(skip as string, 10),
-        }),
-        prisma.post.count({ where: whereClause }),
-      ]);
-
-      // カテゴリの形式を整える
-      const formattedPosts = posts.map((post) => ({
-        ...post,
-        categories: post.categories.map((c) => c.category),
-      }));
-
-      return {
-        data: formattedPosts,
-        meta: {
-          total,
-          skip: Number.parseInt(skip as string, 10),
-          take: Number.parseInt(take as string, 10),
-        },
+    async ({
+      query,
+      services,
+    }: {
+      query: Record<string, string | undefined>;
+      services: ServiceContainer;
+    }) => {
+      const filters = {
+        published:
+          query.published === 'true' ? true : query.published === 'false' ? false : undefined,
+        authorId: query.authorId ? Number.parseInt(query.authorId, 10) : undefined,
+        categoryId: query.categoryId ? Number.parseInt(query.categoryId, 10) : undefined,
+        take: Number.parseInt(query.take as string, 10) || 10,
+        skip: Number.parseInt(query.skip as string, 10) || 0,
       };
+
+      return await services.post.getPosts(filters);
     },
     {
       query: t.Object({
@@ -92,36 +49,23 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // IDで投稿を取得
   .get(
     '/:id',
-    async ({ params, set }) => {
-      const { id } = params;
-      const post = await prisma.post.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
-      });
+    async ({
+      params,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
+      const postId = Number.parseInt(params.id, 10);
+      const result = await services.post.getPostById(postId);
 
-      if (!post) {
+      if (!result.success) {
         set.status = 404;
-        return { error: '投稿が見つかりません' };
       }
 
-      // カテゴリの形式を整える
-      return {
-        ...post,
-        categories: post.categories.map((c) => c.category),
-      };
+      return result;
     },
     {
       params: t.Object({
@@ -137,57 +81,30 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 新しい投稿を作成
   .post(
     '/',
-    async ({ body, user, set }) => {
+    async ({
+      body,
+      user,
+      set,
+      services,
+    }: {
+      body: { title: string; content: string; published?: boolean; categoryIds?: number[] };
+      user: User | null;
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
       // 認証チェック
       if (!user) {
         set.status = 401;
         return { error: '認証が必要です' };
       }
 
-      const { title, content, published = false, categoryIds = [] } = body;
+      const result = await services.post.createPost({ ...body, authorId: user.id });
 
-      try {
-        const post = await prisma.post.create({
-          data: {
-            title,
-            content,
-            published,
-            authorId: user.id,
-            categories: {
-              create: categoryIds.map((categoryId: number) => ({
-                category: {
-                  connect: {
-                    id: categoryId,
-                  },
-                },
-              })),
-            },
-          },
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            categories: {
-              include: {
-                category: true,
-              },
-            },
-          },
-        });
-
-        // カテゴリの形式を整える
-        return {
-          ...post,
-          categories: post.categories.map((c) => c.category),
-        };
-      } catch (error) {
+      if (!result.success) {
         set.status = 400;
-        return { error: '投稿の作成に失敗しました', details: error };
       }
+
+      return result;
     },
     {
       body: t.Object({
@@ -208,90 +125,39 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 投稿を更新
   .put(
     '/:id',
-    async ({ params, body, user, set }) => {
+    async ({
+      params,
+      body,
+      user,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      body: { title?: string; content?: string; published?: boolean; categoryIds?: number[] };
+      user: User | null;
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
       // 認証チェック
       if (!user) {
         set.status = 401;
         return { error: '認証が必要です' };
       }
 
-      const { id } = params;
-      const { title, content, published, categoryIds } = body;
+      const postId = Number.parseInt(params.id, 10);
+      const result = await services.post.updatePost(postId, body, user.id, user.role);
 
-      // 投稿の存在確認
-      const post = await prisma.post.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
-
-      if (!post) {
-        set.status = 404;
-        return { error: '投稿が見つかりません' };
+      if (!result.success) {
+        if (result.error === '投稿が見つかりません') {
+          set.status = 404;
+        } else if (result.error === 'この操作を行う権限がありません') {
+          set.status = 403;
+        } else {
+          set.status = 400;
+        }
       }
 
-      // 権限チェック（管理者または投稿の作成者のみ更新可能）
-      if (Number(post.authorId) !== Number(user.id) && user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'この操作を行う権限がありません' };
-      }
-
-      try {
-        // トランザクション内で更新処理
-        const updatedPost = await prisma.$transaction(async (tx) => {
-          // 既存のカテゴリ関連を削除（もしカテゴリIDが提供されている場合）
-          if (categoryIds) {
-            await tx.categoryOnPost.deleteMany({
-              where: { postId: Number.parseInt(id, 10) },
-            });
-          }
-
-          // 投稿を更新
-          const updated = await tx.post.update({
-            where: { id: Number.parseInt(id, 10) },
-            data: {
-              title,
-              content,
-              published,
-              // カテゴリIDが提供されている場合は新たな関連を作成
-              ...(categoryIds && {
-                categories: {
-                  create: categoryIds.map((categoryId: number) => ({
-                    category: {
-                      connect: {
-                        id: categoryId,
-                      },
-                    },
-                  })),
-                },
-              }),
-            },
-            include: {
-              author: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-              categories: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          });
-
-          return updated;
-        });
-
-        // カテゴリの形式を整える
-        return {
-          ...updatedPost,
-          categories: updatedPost.categories.map((c) => c.category),
-        };
-      } catch (error) {
-        set.status = 400;
-        return { error: '投稿の更新に失敗しました', details: error };
-      }
+      return result;
     },
     {
       params: t.Object({
@@ -315,50 +181,37 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 投稿を削除
   .delete(
     '/:id',
-    async ({ params, user, set }) => {
+    async ({
+      params,
+      user,
+      set,
+      services,
+    }: {
+      params: { id: string };
+      user: User | null;
+      set: { status: number };
+      services: ServiceContainer;
+    }) => {
       // 認証チェック
       if (!user) {
         set.status = 401;
         return { error: '認証が必要です' };
       }
 
-      const { id } = params;
+      const postId = Number.parseInt(params.id, 10);
+      const result = await services.post.deletePost(postId, user.id, user.role);
 
-      // 投稿の存在確認
-      const post = await prisma.post.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
-
-      if (!post) {
-        set.status = 404;
-        return { error: '投稿が見つかりません' };
+      if (!result.success) {
+        if (result.error === '投稿が見つかりません') {
+          set.status = 404;
+        } else if (result.error === 'この操作を行う権限がありません') {
+          set.status = 403;
+        } else {
+          set.status = 400;
+        }
       }
 
-      // 権限チェック（管理者または投稿の作成者のみ削除可能）
-      if (Number(post.authorId) !== Number(user.id) && user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'この操作を行う権限がありません' };
-      }
-
-      try {
-        // トランザクション内で削除処理
-        await prisma.$transaction(async (tx) => {
-          // 関連するカテゴリ関連を削除
-          await tx.categoryOnPost.deleteMany({
-            where: { postId: Number.parseInt(id, 10) },
-          });
-
-          // 投稿を削除
-          await tx.post.delete({
-            where: { id: Number.parseInt(id, 10) },
-          });
-        });
-
-        return { message: '投稿を削除しました' };
-      } catch (error) {
-        set.status = 400;
-        return { error: '投稿の削除に失敗しました', details: error };
-      }
+      return result;
     },
     {
       params: t.Object({

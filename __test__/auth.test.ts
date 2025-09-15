@@ -81,9 +81,9 @@ describe('Auth Routes', () => {
       }),
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     const data = await response.json();
-    expect(data.error).toContain('すでに登録されているメールアドレスです');
+    expect(data.message).toContain('すでに登録されているメールアドレスです');
   });
 
   // ログインのテスト
@@ -128,7 +128,7 @@ describe('Auth Routes', () => {
 
     expect(response.status).toBe(401);
     const data = await response.json();
-    expect(data.error).toContain('メールアドレスまたはパスワードが正しくありません');
+    expect(data.message).toContain('メールアドレスまたはパスワードが正しくありません');
   });
 
   // ユーザー情報取得のテスト

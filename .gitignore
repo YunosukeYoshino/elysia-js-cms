@@ -44,3 +44,4 @@ pnpm-debug.log*
 
 # Husky hooks directory
 .husky
+tasks
