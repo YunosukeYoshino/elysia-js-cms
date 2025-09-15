@@ -77,8 +77,11 @@ export const filesRouter = new Elysia({ prefix: '/files' })
 
         // ファイルを読み込んで返す
         const { createReadStream } = await import('node:fs');
-        const { uploadDir } = services.file.getDirectoryPaths();
-        const filePath = join(uploadDir, fileName);
+        const filePath = fileInfo.filePath;
+        if (!filePath) {
+          set.status = 500;
+          return { success: false, message: 'Failed to resolve file path' };
+        }
         const file = createReadStream(filePath);
         set.headers['Content-Type'] = fileInfo.mimeType;
         return file;
