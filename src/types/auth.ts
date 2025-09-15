@@ -73,30 +73,37 @@ export interface ProfileResponse {
 
 /**
  * 認証関連のAPIモデル定義
- * 後方互換性のため、staticプロパティを持つオブジェクトとして定義
+ * 型安全なモデル定義として改善
  */
 export const ApiModels = {
   Auth: {
-    User: {
-      static: {} as User,
-    },
-    RegisterRequest: {
-      static: {} as RegisterRequest,
-    },
-    LoginRequest: {
-      static: {} as LoginRequest,
-    },
-    LoginResponse: {
-      static: {} as LoginResponse,
-    },
-    RefreshRequest: {
-      static: {} as RefreshRequest,
-    },
-    RefreshResponse: {
-      static: {} as RefreshResponse,
-    },
-    LogoutRequest: {
-      static: {} as LogoutRequest,
-    },
+    User: 'User' as const,
+    RegisterRequest: 'RegisterRequest' as const,
+    LoginRequest: 'LoginRequest' as const,
+    LoginResponse: 'LoginResponse' as const,
+    RefreshRequest: 'RefreshRequest' as const,
+    RefreshResponse: 'RefreshResponse' as const,
+    LogoutRequest: 'LogoutRequest' as const,
+    ProfileResponse: 'ProfileResponse' as const,
   },
 } as const;
+
+/**
+ * 型安全なモデルアクセサー
+ */
+export type AuthModelType = typeof ApiModels.Auth;
+export type AuthModelKeys = keyof AuthModelType;
+
+/**
+ * 型マッピング
+ */
+export type AuthTypeMap = {
+  User: User;
+  RegisterRequest: RegisterRequest;
+  LoginRequest: LoginRequest;
+  LoginResponse: LoginResponse;
+  RefreshRequest: RefreshRequest;
+  RefreshResponse: RefreshResponse;
+  LogoutRequest: LogoutRequest;
+  ProfileResponse: ProfileResponse;
+};

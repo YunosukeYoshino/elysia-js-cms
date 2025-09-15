@@ -77,10 +77,17 @@ const app = new Elysia()
     let message = 'Internal server error';
 
     // Check if it's a known service error
-    if (error.message && error.message in ServiceErrorCodes) {
-      errorCode = error.message;
-      statusCode = ServiceErrorCodes[errorCode];
-      message = ServiceErrorMessages[errorCode];
+    if (error.message) {
+      // Extract error code from message (handle cases like "[AuthService.register] EMAIL_ALREADY_EXISTS")
+      const errorCodeMatch =
+        error.message.match(/\[.*\]\s*(\w+)$/) || error.message.match(/^(\w+)$/);
+      const extractedErrorCode = errorCodeMatch ? errorCodeMatch[1] : error.message;
+
+      if (extractedErrorCode in ServiceErrorCodes) {
+        errorCode = extractedErrorCode;
+        statusCode = ServiceErrorCodes[errorCode];
+        message = ServiceErrorMessages[errorCode];
+      }
     }
     // Check for Elysia validation errors
     else if (error.code === 'VALIDATION') {

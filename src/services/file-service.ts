@@ -67,6 +67,7 @@ export class FileService extends BaseService {
   private readonly UPLOAD_DIR = './uploads';
   private readonly THUMBS_DIR = './uploads/thumbnails';
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  private _directoriesInitialized = false;
 
   /**
    * Initialize the file service
@@ -94,9 +95,16 @@ export class FileService extends BaseService {
    * Initialize upload directories
    */
   private async initializeDirectories(): Promise<void> {
+    if (this._directoriesInitialized) {
+      return;
+    }
+
     try {
-      await mkdir(this.UPLOAD_DIR, { recursive: true });
-      await mkdir(this.THUMBS_DIR, { recursive: true });
+      await Promise.all([
+        mkdir(this.UPLOAD_DIR, { recursive: true }),
+        mkdir(this.THUMBS_DIR, { recursive: true }),
+      ]);
+      this._directoriesInitialized = true;
       this.log('Upload directories initialized');
     } catch (error) {
       this.handleError(error, 'FileService.initializeDirectories');
@@ -113,8 +121,10 @@ export class FileService extends BaseService {
     _set: { status: number },
   ): Promise<FileUploadResponse> {
     try {
-      // Ensure upload directories exist
-      await this.initializeDirectories();
+      // Ensure service is initialized
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
 
       return new Promise<FileUploadResponse>((resolve, reject) => {
         form.parse(request, async (err: Error | null, _fields: Fields, files: Files) => {
