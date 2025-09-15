@@ -49,17 +49,14 @@ export class CategoryService extends BaseService {
       });
 
       if (!category) {
-        return {
-          success: false,
-          error: 'カテゴリが見つかりません',
-        };
+        throw new Error('CATEGORY_NOT_FOUND');
       }
 
-      return {
-        success: true,
-        data: category,
-      };
+      return category;
     } catch (error) {
+      if (error instanceof Error && error.message === 'CATEGORY_NOT_FOUND') {
+        throw error;
+      }
       this.handleError(error, 'CategoryService.getCategoryById');
     }
   }

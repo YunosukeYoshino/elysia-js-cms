@@ -80,7 +80,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         throw new Error('AUTHENTICATION_REQUIRED');
       }
 
-      const result = await services.auth.logout(body, Number(user.id));
+      const result = await services.auth.logout(body, user.id);
       return result;
     },
     {
@@ -104,7 +104,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         throw new Error('AUTHENTICATION_REQUIRED');
       }
 
-      const profile = await services.auth.getProfile(Number(user.id));
+      const profile = await services.auth.getProfile(user.id);
       return profile;
     },
     {

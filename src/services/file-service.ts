@@ -93,43 +93,28 @@ export class FileService extends BaseService {
     form: IncomingForm,
     request: Request,
     userId: number,
-    set: { status: number },
+    _set: { status: number },
   ): Promise<FileUploadResponse> {
     try {
       // Ensure upload directories exist
       await this.initializeDirectories();
 
-      return new Promise<FileUploadResponse>((resolve) => {
+      return new Promise<FileUploadResponse>((resolve, reject) => {
         form.parse(request, async (err: Error | null, _fields: Fields, files: Files) => {
-          if (err) {
-            this.log('File upload parsing failed', err);
-            set.status = 500;
-            resolve({
-              success: false,
-              message: 'ファイルのアップロードに失敗しました',
-            });
-            return;
-          }
-
-          const uploadedFile = files.file?.[0] as FileUpload;
-          if (!uploadedFile) {
-            set.status = 400;
-            resolve({
-              success: false,
-              message: 'ファイルが見つかりません',
-            });
-            return;
-          }
-
           try {
+            if (err) {
+              this.log('File upload parsing failed', err);
+              return reject(new Error('ファイルのアップロードに失敗しました'));
+            }
+
+            const uploadedFile = files.file?.[0] as FileUpload;
+            if (!uploadedFile) {
+              return reject(new Error('ファイルが見つかりません'));
+            }
+
             // Validate file size
             if (uploadedFile.size > this.MAX_FILE_SIZE) {
-              set.status = 400;
-              resolve({
-                success: false,
-                message: 'ファイルサイズが大きすぎます',
-              });
-              return;
+              return reject(new Error('ファイルサイズが大きすぎます'));
             }
 
             // Generate file metadata
@@ -161,11 +146,7 @@ export class FileService extends BaseService {
             });
           } catch (error) {
             this.log('File processing error', error);
-            set.status = 500;
-            resolve({
-              success: false,
-              message: 'ファイル処理中にエラーが発生しました',
-            });
+            reject(new Error('ファイル処理中にエラーが発生しました'));
           }
         });
       });
@@ -301,16 +282,12 @@ export class FileService extends BaseService {
 
       // Delete physical file
       const actualFilePath = join(this.UPLOAD_DIR, file.fileName);
-      await unlink(actualFilePath).catch((err) =>
-        this.log(`Failed to delete file ${actualFilePath}`, err),
-      );
+      await unlink(actualFilePath);
 
       // Delete thumbnail if exists
       if (file.thumbnailPath) {
         const actualThumbPath = join(this.THUMBS_DIR, `${fileId}_thumb.jpg`);
-        await unlink(actualThumbPath).catch((err) =>
-          this.log(`Failed to delete thumbnail ${actualThumbPath}`, err),
-        );
+        await unlink(actualThumbPath);
       }
 
       this.log(`File deleted successfully: ${file.originalName}`);

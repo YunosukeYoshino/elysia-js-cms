@@ -26,23 +26,9 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
   // IDでカテゴリを取得
   .get(
     '/:id',
-    async ({
-      params,
-      set,
-      services,
-    }: {
-      params: { id: string };
-      set: { status: number };
-      services: ServiceContainer;
-    }) => {
+    async ({ params, services }: { params: { id: string }; services: ServiceContainer }) => {
       const categoryId = Number.parseInt(params.id, 10);
-      const result = await services.category.getCategoryById(categoryId);
-
-      if (!result.success) {
-        set.status = 404;
-      }
-
-      return result;
+      return await services.category.getCategoryById(categoryId);
     },
     {
       params: t.Object({

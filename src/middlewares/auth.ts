@@ -6,7 +6,7 @@ import prisma from '../lib/prisma';
  * ユーザーエンティティの型定義
  */
 export interface User {
-  id: string;
+  id: number;
   email: string;
   name: string | null;
   role: string;
