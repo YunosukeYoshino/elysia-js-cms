@@ -1,4 +1,13 @@
-import type { ApiModels } from '../models';
+import type {
+  LoginRequest,
+  LoginResponse,
+  LogoutRequest,
+  ProfileResponse,
+  RefreshRequest,
+  RefreshResponse,
+  RegisterRequest,
+  User,
+} from '../types/auth';
 import {
   AUTH_CONFIG,
   checkAccountLockByEmail,
@@ -26,9 +35,7 @@ export class AuthService extends BaseService {
   /**
    * Register a new user
    */
-  async register(
-    userData: typeof ApiModels.Auth.RegisterRequest.static,
-  ): Promise<typeof ApiModels.Auth.User.static> {
+  async register(userData: RegisterRequest): Promise<User> {
     try {
       const { email, password, name } = userData;
 
@@ -67,7 +74,7 @@ export class AuthService extends BaseService {
       });
 
       this.log(`User registered: ${user.email}`);
-      return user as typeof ApiModels.Auth.User.static;
+      return user as User;
     } catch (error) {
       this.handleError(error, 'AuthService.register');
     }
@@ -77,9 +84,9 @@ export class AuthService extends BaseService {
    * Login user and generate tokens
    */
   async login(
-    credentials: typeof ApiModels.Auth.LoginRequest.static,
+    credentials: LoginRequest,
     jwtSign: (payload: object, options?: object) => Promise<string>,
-  ): Promise<typeof ApiModels.Auth.LoginResponse.static> {
+  ): Promise<LoginResponse> {
     try {
       const { email, password } = credentials;
 
@@ -147,9 +154,9 @@ export class AuthService extends BaseService {
    * Refresh access token
    */
   async refreshToken(
-    refreshTokenData: typeof ApiModels.Auth.RefreshRequest.static,
+    refreshTokenData: RefreshRequest,
     jwtSign: (payload: object, options?: object) => Promise<string>,
-  ): Promise<typeof ApiModels.Auth.RefreshResponse.static> {
+  ): Promise<RefreshResponse> {
     try {
       const { refreshToken } = refreshTokenData;
 
@@ -199,10 +206,7 @@ export class AuthService extends BaseService {
   /**
    * Logout user by revoking tokens
    */
-  async logout(
-    logoutData: typeof ApiModels.Auth.LogoutRequest.static,
-    userId: number,
-  ): Promise<{ message: string }> {
+  async logout(logoutData: LogoutRequest, userId: number): Promise<{ message: string }> {
     try {
       const { refreshToken, logoutAll } = logoutData;
 
@@ -226,7 +230,7 @@ export class AuthService extends BaseService {
   /**
    * Get user profile
    */
-  async getProfile(userId: number): Promise<{ user: typeof ApiModels.Auth.User.static }> {
+  async getProfile(userId: number): Promise<ProfileResponse> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -242,7 +246,7 @@ export class AuthService extends BaseService {
         throw new Error('USER_NOT_FOUND');
       }
 
-      return { user: user as typeof ApiModels.Auth.User.static };
+      return { user: user as User };
     } catch (error) {
       this.handleError(error, 'AuthService.getProfile');
     }

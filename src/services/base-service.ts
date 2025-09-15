@@ -6,30 +6,86 @@ import type { PrismaClient } from '@prisma/client';
  */
 export abstract class BaseService {
   protected prisma: PrismaClient;
+  private _initialized: boolean = false;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
   }
 
   /**
+   * Initialize the service asynchronously
+   * Override this method in subclasses for custom initialization
+   */
+  async initialize(): Promise<void> {
+    if (this._initialized) {
+      return;
+    }
+
+    try {
+      // Test database connection (skip in test environment if already connected)
+      if (process.env.NODE_ENV !== 'test') {
+        await this.prisma.$connect();
+      }
+      this._initialized = true;
+      this.log('Service initialized successfully');
+    } catch (error) {
+      this.handleError(error, `${this.constructor.name}.initialize`);
+    }
+  }
+
+  /**
+   * Check if service is initialized
+   */
+  get isInitialized(): boolean {
+    return this._initialized;
+  }
+
+  /**
    * Handle errors with consistent logging and rethrowing
    * @param error - The caught error
    * @param context - Context information for debugging
+   * @param shouldThrow - Whether to throw the error (default: true)
+   * @returns Error object if shouldThrow is false, otherwise never returns
    */
-  protected handleError(error: unknown, context: string): never {
+  protected handleError(
+    error: unknown,
+    context: string,
+    shouldThrow: boolean = true,
+  ): Error | never {
     // Log error in development/test environments
     if (process.env.NODE_ENV !== 'production') {
       console.error(`[${context}] Service error:`, error);
     }
 
-    // Re-throw the error to be handled by the global error handler
+    // Create error object
+    let errorObj: Error;
     if (error instanceof Error) {
-      throw error;
+      errorObj = error;
+    } else {
+      const errorMessage = typeof error === 'string' ? error : 'Internal service error';
+      errorObj = new Error(errorMessage);
     }
 
-    // Create a new error if the thrown value is not an Error
-    const errorMessage = typeof error === 'string' ? error : 'Internal service error';
-    throw new Error(errorMessage);
+    // Add context to error message for better debugging
+    if (errorObj.message && !errorObj.message.includes(context)) {
+      errorObj.message = `[${context}] ${errorObj.message}`;
+    }
+
+    if (shouldThrow) {
+      throw errorObj;
+    }
+
+    return errorObj;
+  }
+
+  /**
+   * Handle recoverable errors that don't need to be thrown
+   * @param error - The caught error
+   * @param context - Context information for debugging
+   * @returns Error object
+   */
+  protected handleRecoverableError(error: unknown, context: string): Error {
+    return this.handleError(error, context, false);
   }
 
   /**

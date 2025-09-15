@@ -68,9 +68,26 @@ export class FileService extends BaseService {
   private readonly THUMBS_DIR = './uploads/thumbnails';
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-  constructor(prisma: typeof import('../lib/prisma').default) {
-    super(prisma);
-    this.initializeDirectories();
+  /**
+   * Initialize the file service
+   * Creates necessary directories and sets up the service
+   */
+  async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+
+    try {
+      // Call parent initialization first
+      await super.initialize();
+
+      // Initialize upload directories
+      await this.initializeDirectories();
+
+      this.log('FileService initialized successfully');
+    } catch (error) {
+      this.handleError(error, 'FileService.initialize');
+    }
   }
 
   /**

@@ -18,6 +18,9 @@ describe('Auth Routes', () => {
   beforeAll(async () => {
     // データベースの準備（スクリプトを使用）
     await import('../scripts/prepare-db.ts').then((m) => m.default('test'));
+
+    // アプリケーションの初期化を待つ
+    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   afterAll(async () => {
@@ -38,6 +41,11 @@ describe('Auth Routes', () => {
 
   // ユーザー登録のテスト
   it('should register a new user', async () => {
+    // サービスの初期化を確実にする
+    if (app.decorators.services && !app.decorators.services.isInitialized) {
+      await app.decorators.services.initialize();
+    }
+
     const response = await app.handle(
       new Request('http://localhost/api/auth/register', {
         method: 'POST',
