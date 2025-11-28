@@ -89,3 +89,10 @@
 - マジックナンバーを避け、定数を定義する
 - 関数は動詞で始める
 - ブール値変数には動詞を使用（例: isLoading、hasError、canDeleteなど）
+
+## AI支援コーディング（Vibe Coding）のためのガイド
+
+- **コード生成後の検証**: 生成されたコードは必ず `bun run check` と `bun test` で検証してください。
+- **Lintエラーの修正**: `biome-ignore` を使用せず、コードを修正して Lint エラーを解決してください。
+- **Strict Mode**: `any` 型の使用は禁止されています。適切な型定義を行ってください。
+- **Format**: コミット前に必ず `bun run lint:fix` を実行してください。
