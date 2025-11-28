@@ -2,111 +2,174 @@
 
 <img width="1918" height="1068" alt="image" src="https://github.com/user-attachments/assets/e47bab31-458e-4dbe-add6-90ba0f9c06a3" />
 
-ElysiaJS を使用した軽量な CMS API です。
+<div align="center">
 
-## 機能
+[![Bun](https://img.shields.io/badge/Bun-%23000000.svg?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh)
+[![ElysiaJS](https://img.shields.io/badge/ElysiaJS-259dff?style=for-the-badge)](https://elysiajs.com)
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)](https://www.prisma.io/)
+[![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-- 認証（JWT）
-- ユーザー管理
-- 投稿管理
-- カテゴリ管理
-- ファイルアップロード
-- Swagger UI によるAPI ドキュメント
+**A high-performance, lightweight CMS API built with ElysiaJS and Bun.**
 
-## 使用技術
+[Features](#features) • [Tech Stack](#tech-stack) • [Getting Started](#getting-started) • [API Documentation](#api-documentation) • [Development](#development)
 
-- [Bun](https://bun.sh/) - JavaScript ランタイム
-- [ElysiaJS](https://elysiajs.com/) - Bun 対応の高速な Web フレームワーク
-- [Prisma](https://www.prisma.io/) - Node.js と TypeScript の ORM
-- [SQLite](https://www.sqlite.org/) - 埋め込み型データベース
+</div>
 
-## 開発環境セットアップ
+---
 
-### 前提条件
+## Overview
 
-- [Bun](https://bun.sh/) がインストールされていること
+This project is a robust Content Management System (CMS) backend API designed for speed and developer experience. Built on the modern **Bun** runtime and **ElysiaJS** framework, it provides a complete suite of features for managing content, authentication, and media.
 
-### インストール
+Whether you're building a blog, a documentation site, or a portfolio, this API serves as a solid foundation with built-in type safety and comprehensive documentation.
 
-```bash
-# リポジトリをクローン
-git clone https://github.com/YunosukeYoshino/elysiajs-demo.git
-cd elysiajs-demo
+## Features
 
-# 依存関係をインストール
-bun install
+- **🔐 Secure Authentication**: robust JWT-based authentication with access and refresh token rotation.
+- **📝 Content Management**: Full CRUD operations for Posts and Categories.
+- **🏷️ Taxonomy**: Flexible many-to-many relationships between posts and categories.
+- **📂 File Management**: Integrated file uploads with automatic thumbnail generation and MIME type validation.
+- **🛡️ Rate Limiting**: Built-in protection against abuse with configurable rate limits.
+- **📑 API Documentation**: Interactive Swagger/OpenAPI documentation available out-of-the-box.
+- **⚡ High Performance**: Powered by Bun and ElysiaJS for sub-millisecond response times.
 
-# 開発データベースを準備
-bun prisma db push
+## Tech Stack
 
-# テスト用データを投入
-bun run seed
-```
+- **Runtime**: [Bun](https://bun.sh)
+- **Framework**: [ElysiaJS](https://elysiajs.com)
+- **Database**: [SQLite](https://www.sqlite.org) (via [Prisma](https://www.prisma.io))
+- **ORM**: [Prisma](https://www.prisma.io)
+- **Language**: [TypeScript](https://www.typescriptlang.org)
+- **Linting & Formatting**: [Biome](https://biomejs.dev)
 
-### 開発サーバーの起動
+## Getting Started
 
+### Prerequisites
+
+- **Bun**: You need to have Bun installed on your machine.
+  ```bash
+  curl -fsSL https://bun.sh/install | bash
+  ```
+
+### Installation
+
+1.  **Clone the repository**
+    ```bash
+    git clone <your-repo-url>
+    cd elysia-js-cms
+    ```
+
+2.  **Install dependencies**
+    ```bash
+    bun install
+    ```
+
+3.  **Environment Setup**
+    Copy the example environment file and configure your secrets.
+    ```bash
+    cp .env.example .env
+    ```
+    > **Note**: Ensure you set a secure `JWT_SECRET` in your `.env` file.
+
+### Database Setup
+
+1.  **Initialize the database**
+    This command runs migrations and sets up your SQLite database.
+    ```bash
+    bun run prepare-db:dev
+    ```
+
+2.  **Seed data (Optional)**
+    Populate the database with initial test data.
+    ```bash
+    bun run seed
+    ```
+
+### Running the Application
+
+**Development Mode** (with hot reload)
 ```bash
 bun run dev
 ```
 
-サーバーは http://localhost:3001 で起動します。
-Swagger UI は http://localhost:3001/swagger でアクセスできます。
-
-## テスト
-
+**Production Mode**
 ```bash
-# テストを実行
-bun test
-
-# カバレッジレポート付きでテストを実行
-bun test:coverage
-
-# テストを監視モードで実行
-bun test:watch
-```
-
-## Git フックの設定（オプション）
-
-このプロジェクトは、コミット前に自動的にリンターチェックとテストを実行するように設定できます：
-
-```bash
-# huskyとlint-stagedのインストール
-bun add -d husky lint-staged
-
-# huskyの初期化
-bun run prepare
-
-# pre-commitフックを作成
-mkdir -p .husky
-touch .husky/pre-commit
-chmod +x .husky/pre-commit
-```
-
-`.husky/pre-commit` ファイルの内容：
-
-```bash
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-bun run pre-commit
-```
-
-これにより、コミット前に自動的にコードのフォーマットチェックとテストが実行されます。
-
-## ビルドと実行
-
-```bash
-# プロジェクトをビルド
-bun run build
-
-# 本番環境で実行
 bun run start
 ```
 
-## API ドキュメント
+The server will start at `http://localhost:3001`.
 
-Swagger UI: http://localhost:3001/swagger
+## API Documentation
 
-## ライセンス
+Interactive API documentation is automatically generated using Swagger UI.
 
-MIT
+1.  Start the server (`bun run dev`).
+2.  Navigate to `http://localhost:3001/swagger`.
+
+Here you can explore all endpoints, test requests, and view data schemas.
+
+### Key Endpoints
+
+| Category | Endpoint | Description |
+|----------|----------|-------------|
+| **Auth** | `POST /api/auth/register` | Register a new user |
+| | `POST /api/auth/login` | Login and receive tokens |
+| **Posts** | `GET /api/posts` | List all published posts |
+| | `POST /api/posts` | Create a new post (Auth required) |
+| **Categories** | `GET /api/categories` | List all categories |
+| **Files** | `POST /api/files/upload` | Upload a file (Auth required) |
+
+## Development
+
+### Code Quality
+
+We use **Biome** for ultra-fast linting and formatting.
+
+- **Format code**:
+  ```bash
+  bun run format
+  ```
+- **Lint code**:
+  ```bash
+  bun run lint
+  ```
+- **Type Check**:
+  ```bash
+  bun run typecheck
+  ```
+
+### Testing
+
+Run the test suite using Bun's built-in test runner.
+
+```bash
+# Run all tests
+bun test
+
+# Run tests with coverage
+bun run test:coverage
+
+# Watch mode
+bun run test:watch
+```
+
+## Project Structure
+
+```
+src/
+├── domain/          # Domain entities and business logic
+├── lib/             # Shared utilities (Auth, Network, Prisma)
+├── middlewares/     # Application middleware (Auth, Rate Limit)
+├── routes/          # API Route handlers
+├── scripts/         # Database maintenance scripts
+├── tests/           # Integration and Unit tests
+└── types/           # TypeScript type definitions
+```
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ using <a href="https://elysiajs.com">ElysiaJS</a> and <a href="https://bun.sh">Bun</a></sub>
+</div>
