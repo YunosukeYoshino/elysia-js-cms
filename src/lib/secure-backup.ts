@@ -1,6 +1,6 @@
 /**
- * Secure backup utility for sensitive data migration
- * Provides encrypted backup functionality to prevent data breaches
+ * 機密データ移行のためのセキュアバックアップユーティリティ
+ * データ漏洩を防ぐための暗号化バックアップ機能を提供
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
@@ -27,20 +27,20 @@ interface SecureBackupData<T = Record<string, unknown>> {
 }
 
 /**
- * Generate a secure encryption key for backups
+ * バックアップ用の安全な暗号化キーを生成
  *
- * @returns Base64 encoded encryption key
+ * @returns Base64エンコードされた暗号化キー
  */
 export function generateBackupKey(): string {
   return randomBytes(32).toString('base64');
 }
 
 /**
- * Create encrypted backup with sensitive data protection
+ * 機密データ保護付きの暗号化バックアップを作成
  *
- * @param data - Data to backup
- * @param options - Backup configuration options
- * @returns Path to created backup file
+ * @param data - バックアップするデータ
+ * @param options - バックアップ構成オプション
+ * @returns 作成されたバックアップファイルへのパス
  */
 export async function createSecureBackup<T = Record<string, unknown>>(
   data: T[],
@@ -53,12 +53,12 @@ export async function createSecureBackup<T = Record<string, unknown>>(
     backupPath = `backup-users-${Date.now()}.${encrypt ? 'enc' : 'json'}`,
   } = options;
 
-  // Sanitize data to remove sensitive information
+  // 機密情報を削除してデータをサニタイズ
   const sanitizedData = data.map((record) => {
     const sanitized = { ...record };
 
     if (!includePasswords && 'password' in sanitized) {
-      // Remove password field for security
+      // セキュリティのためパスワードフィールドを削除
       delete sanitized.password;
     }
 
@@ -84,7 +84,7 @@ export async function createSecureBackup<T = Record<string, unknown>>(
 
     await writeFile(backupPath, encrypted);
 
-    // Log encryption key securely (in production, should be stored in secure key management)
+    // 暗号化キーを安全にログ出力（本番環境では安全なキー管理に保存すべき）
     console.log(`🔐 Backup encrypted with key: ${key}`);
     console.log(`⚠️  IMPORTANT: Store this key securely. It's required for backup restoration.`);
   } else {
@@ -106,11 +106,11 @@ export async function createSecureBackup<T = Record<string, unknown>>(
 }
 
 /**
- * Restore data from secure backup
+ * セキュアバックアップからデータを復元
  *
- * @param backupPath - Path to backup file
- * @param encryptionKey - Decryption key (required for encrypted backups)
- * @returns Restored data
+ * @param backupPath - バックアップファイルへのパス
+ * @param encryptionKey - 復号化キー（暗号化バックアップの場合は必須）
+ * @returns 復元されたデータ
  */
 export async function restoreSecureBackup(
   backupPath: string,
@@ -140,9 +140,9 @@ export async function restoreSecureBackup(
 }
 
 /**
- * Securely delete backup file
+ * バックアップファイルを安全に削除
  *
- * @param backupPath - Path to backup file to delete
+ * @param backupPath - 削除するバックアップファイルへのパス
  */
 export async function secureDeleteBackup(backupPath: string): Promise<void> {
   try {
@@ -155,17 +155,17 @@ export async function secureDeleteBackup(backupPath: string): Promise<void> {
 }
 
 /**
- * Encrypt backup data using AES-256-CBC
+ * AES-256-CBCを使用してバックアップデータを暗号化
  *
- * @param data - Data to encrypt
- * @param key - Encryption key
- * @returns Encrypted data
+ * @param data - 暗号化するデータ
+ * @param key - 暗号化キー
+ * @returns 暗号化されたデータ
  */
 async function encryptBackup(data: string, key: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
   const iv = randomBytes(16);
 
-  // Create a proper key from the input string
+  // 入力文字列から適切なキーを作成
   const keyBuffer =
     Buffer.from(key, 'base64').length >= 32
       ? Buffer.from(key, 'base64').subarray(0, 32)
@@ -176,16 +176,16 @@ async function encryptBackup(data: string, key: string): Promise<string> {
   let encrypted = cipher.update(data, 'utf8', 'hex');
   encrypted += cipher.final('hex');
 
-  // Prepend IV for decryption
+  // 復号化のためにIVを先頭に付加
   return `${iv.toString('hex')}:${encrypted}`;
 }
 
 /**
- * Decrypt backup data using AES-256-CBC
+ * AES-256-CBCを使用してバックアップデータを復号化
  *
- * @param encryptedData - Encrypted data to decrypt
- * @param key - Decryption key
- * @returns Decrypted data
+ * @param encryptedData - 復号化する暗号化データ
+ * @param key - 復号化キー
+ * @returns 復号化されたデータ
  */
 async function decryptBackup(encryptedData: string, key: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
@@ -198,7 +198,7 @@ async function decryptBackup(encryptedData: string, key: string): Promise<string
   const iv = Buffer.from(parts[0], 'hex');
   const encrypted = parts[1];
 
-  // Create a proper key from the input string
+  // 入力文字列から適切なキーを作成
   const keyBuffer =
     Buffer.from(key, 'base64').length >= 32
       ? Buffer.from(key, 'base64').subarray(0, 32)
@@ -213,11 +213,11 @@ async function decryptBackup(encryptedData: string, key: string): Promise<string
 }
 
 /**
- * Validate backup file integrity
+ * バックアップファイルの完全性を検証
  *
- * @param backupPath - Path to backup file
- * @param encryptionKey - Decryption key (if encrypted)
- * @returns Validation result
+ * @param backupPath - バックアップファイルへのパス
+ * @param encryptionKey - 復号化キー（暗号化されている場合）
+ * @returns 検証結果
  */
 export async function validateBackup(
   backupPath: string,
@@ -226,7 +226,7 @@ export async function validateBackup(
   try {
     const backupData = await restoreSecureBackup(backupPath, encryptionKey);
 
-    // Basic validation
+    // 基本的な検証
     if (!backupData.metadata || !Array.isArray(backupData.data)) {
       return { valid: false, error: 'Invalid backup structure' };
     }

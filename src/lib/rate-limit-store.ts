@@ -1,6 +1,6 @@
 /**
- * Rate limit storage abstraction
- * Supports in-memory (development) and Redis (production) backends
+ * レート制限ストレージの抽象化
+ * インメモリ（開発用）とRedis（本番用）バックエンドをサポート
  */
 
 export interface RateLimitData {
@@ -18,14 +18,14 @@ export interface RateLimitStore {
 }
 
 /**
- * In-memory rate limit store (development/testing)
+ * インメモリレート制限ストア（開発/テスト用）
  */
 export class MemoryRateLimitStore implements RateLimitStore {
   private store: Map<string, RateLimitData> = new Map();
   private cleanupInterval: Timer | null = null;
 
   constructor(cleanupIntervalMs: number = 60000) {
-    // Cleanup expired entries every minute
+    // 1分ごとに期限切れエントリをクリーンアップ
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, cleanupIntervalMs);
@@ -36,7 +36,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
 
     if (!data) return null;
 
-    // Check if expired
+    // 期限切れかチェック
     if (data.resetTime <= Date.now()) {
       this.store.delete(key);
       return null;
@@ -46,7 +46,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
   }
 
   async set(key: string, data: RateLimitData, _ttlMs: number): Promise<void> {
-    // TTL is handled by resetTime in the data structure
+    // TTLはデータ構造内のresetTimeによって処理される
     this.store.set(key, data);
   }
 
@@ -57,7 +57,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
     }
 
     existing.count++;
-    await this.set(key, existing, 0); // ttl not needed, resetTime is set
+    await this.set(key, existing, 0); // ttlは不要、resetTimeが設定されている
 
     return existing.count;
   }
@@ -85,10 +85,10 @@ export class MemoryRateLimitStore implements RateLimitStore {
 }
 
 /**
- * Redis rate limit store (production)
- * Requires redis package to be installed
+ * Redisレート制限ストア（本番用）
+ * redisパッケージのインストールが必要
  */
-// Interface for Redis client to avoid 'any' type
+// 'any'型を避けるためのRedisクライアントインターフェース
 interface RedisClient {
   hmget(key: string, ...fields: string[]): Promise<(string | null)[]>;
   multi(): RedisMulti;
@@ -116,7 +116,7 @@ export class RedisRateLimitStore implements RateLimitStore {
     if (this.connected) return;
 
     try {
-      // Dynamic import to make Redis optional
+      // Redisをオプションにするための動的インポート
       const Redis = await import('ioredis').then((m) => m.default);
       this.redis = new Redis(this.redisUrl);
       this.connected = true;
@@ -141,7 +141,7 @@ export class RedisRateLimitStore implements RateLimitStore {
       resetTime: parseInt(data[1], 10),
     };
 
-    // Check if expired
+    // 期限切れかチェック
     if (rateLimitData.resetTime <= Date.now()) {
       await this.delete(key);
       return null;
@@ -180,7 +180,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   }
 
   async cleanup(): Promise<void> {
-    // Redis handles TTL automatically, no manual cleanup needed
+    // RedisはTTLを自動的に処理するため、手動クリーンアップは不要
     return Promise.resolve();
   }
 
@@ -193,7 +193,7 @@ export class RedisRateLimitStore implements RateLimitStore {
 }
 
 /**
- * Create appropriate rate limit store based on environment
+ * 環境に基づいて適切なレート制限ストアを作成
  */
 export function createRateLimitStore(): RateLimitStore {
   const redisUrl = process.env.REDIS_URL;

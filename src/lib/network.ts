@@ -1,6 +1,6 @@
 /**
- * Network utilities for IP extraction and request handling
- * Centralized implementation following ElysiaJS patterns
+ * IP抽出とリクエスト処理のためのネットワークユーティリティ
+ * ElysiaJSのパターンに従った一元化された実装
  */
 
 export interface RequestLike {
@@ -10,44 +10,44 @@ export interface RequestLike {
 }
 
 /**
- * Extract client IP address with proxy support
- * Handles X-Forwarded-For, X-Real-IP, and direct IP
+ * クライアントのIPアドレスを抽出（プロキシ対応）
+ * X-Forwarded-For, X-Real-IP, および直接のIPを処理
  *
- * @param request - Request-like object with headers and ip
- * @returns Extracted IP address or 'unknown' if not found
+ * @param request - ヘッダーとIPを持つリクエスト風オブジェクト
+ * @returns 抽出されたIPアドレス、または見つからない場合は 'unknown'
  */
 export function extractClientIP(request: RequestLike): string {
-  // Check X-Forwarded-For header (proxy chains)
+  // X-Forwarded-Forヘッダー（プロキシチェーン）を確認
   const forwarded = request.headers['x-forwarded-for'];
   if (forwarded) {
-    // Take the first IP in the chain (original client)
+    // チェーン内の最初のIP（元のクライアント）を取得
     const firstIP = forwarded.split(',')[0].trim();
     if (firstIP && firstIP !== 'unknown') {
       return firstIP;
     }
   }
 
-  // Check X-Real-IP header (single proxy)
+  // X-Real-IPヘッダー（単一プロキシ）を確認
   const realIP = request.headers['x-real-ip'];
   if (realIP && realIP !== 'unknown') {
     return realIP;
   }
 
-  // Direct IP (no proxy)
+  // 直接のIP（プロキシなし）
   if (request.ip && request.ip !== 'unknown') {
     return request.ip;
   }
 
-  // Fallback for unknown cases
+  // 不明な場合のフォールバック
   return 'unknown';
 }
 
 /**
- * Generate rate limit key with prefix and IP
+ * プレフィックスとIPを使用してレート制限キーを生成
  *
- * @param prefix - Rate limit category prefix
- * @param request - Request-like object
- * @returns Rate limit key string
+ * @param prefix - レート制限カテゴリのプレフィックス
+ * @param request - リクエスト風オブジェクト
+ * @returns レート制限キー文字列
  */
 export function generateRateLimitKey(prefix: string, request: RequestLike): string {
   const ip = extractClientIP(request);
@@ -55,19 +55,19 @@ export function generateRateLimitKey(prefix: string, request: RequestLike): stri
 }
 
 /**
- * Validate IP address format (basic validation)
+ * IPアドレスの形式を検証（基本的な検証）
  *
- * @param ip - IP address string
- * @returns true if valid IPv4 or IPv6 format
+ * @param ip - IPアドレス文字列
+ * @returns 有効なIPv4またはIPv6形式の場合はtrue
  */
 export function isValidIP(ip: string): boolean {
   if (!ip || ip === 'unknown') return false;
 
-  // IPv4 regex - fixed escaping
+  // IPv4正規表現 - エスケープを修正
   const ipv4Regex =
     /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
-  // IPv6 regex (simplified) - covers common cases
+  // IPv6正規表現（簡略化） - 一般的なケースをカバー
   const ipv6Regex =
     /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$|^([0-9a-fA-F]{1,4}:){1,7}:$/;
 
@@ -75,15 +75,15 @@ export function isValidIP(ip: string): boolean {
 }
 
 /**
- * Extract user agent with truncation for security
+ * セキュリティのために切り詰められたユーザーエージェントを抽出
  *
- * @param request - Request-like object
- * @returns Truncated user agent string
+ * @param request - リクエスト風オブジェクト
+ * @returns 切り詰められたユーザーエージェント文字列
  */
 export function extractUserAgent(request: RequestLike): string {
   const userAgent = request.headers['user-agent'];
   if (!userAgent) return 'unknown';
 
-  // Truncate to prevent header injection attacks
+  // ヘッダー注入攻撃を防ぐために切り詰める
   return userAgent.substring(0, 255);
 }
