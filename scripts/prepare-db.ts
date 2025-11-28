@@ -24,7 +24,7 @@ async function prepareDatabase(mode: 'development' | 'test' = 'development') {
     // Use Prisma to push the schema to the database
     console.log('🔄 Pushing Prisma schema to database...');
     const env = mode === 'test' ? { ...process.env, NODE_ENV: 'test' } : process.env;
-    execSync('bunx prisma db push --skip-generate', {
+    execSync('bun prisma db push --skip-generate', {
       stdio: 'inherit',
       env,
     });
