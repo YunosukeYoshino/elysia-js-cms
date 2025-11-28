@@ -3,8 +3,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import prisma from '../../lib/prisma';
 import { revokeRefreshTokenSecure } from '../auth-security';
+import prisma from '../prisma';
 
 describe('Auth Security', () => {
   let testUserId: number;

@@ -5,12 +5,12 @@
  */
 
 import { Elysia } from 'elysia';
-import { extractClientIP, generateRateLimitKey, type RequestLike } from '../utils/network';
+import { extractClientIP, generateRateLimitKey, type RequestLike } from '../lib/network';
 import {
   createRateLimitStore,
   type RateLimitData,
   type RateLimitStore,
-} from '../utils/rate-limit-store';
+} from '../lib/rate-limit-store';
 
 export interface RateLimitOptions {
   windowMs: number; // 時間窓（ミリ秒）

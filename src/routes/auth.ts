@@ -1,7 +1,4 @@
 import { Elysia, t } from 'elysia';
-import prisma from '../lib/prisma';
-import { authMiddleware } from '../middlewares/auth';
-import { authRateLimit, registerRateLimit } from '../middlewares/rate-limit';
 import {
   AUTH_CONFIG,
   checkAccountLockByEmail,
@@ -12,13 +9,16 @@ import {
   revokeRefreshToken,
   revokeRefreshTokenSecure,
   validateRefreshToken,
-} from '../utils/auth-security';
+} from '../lib/auth-security';
 import {
   generateSecureToken,
   hashPassword,
   validatePasswordStrength,
   verifyPassword,
-} from '../utils/password';
+} from '../lib/password';
+import prisma from '../lib/prisma';
+import { authMiddleware } from '../middlewares/auth';
+import { authRateLimit, registerRateLimit } from '../middlewares/rate-limit';
 
 /**
  * 認証関連のルーティング定義

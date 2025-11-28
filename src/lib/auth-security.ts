@@ -3,7 +3,7 @@
  * ブルートフォース攻撃対策とアカウントロックアウト機能を提供
  */
 
-import prisma from '../lib/prisma';
+import prisma from './prisma';
 
 export const AUTH_CONFIG = {
   MAX_LOGIN_ATTEMPTS: 5,
