@@ -5,9 +5,9 @@
  * bun run src/scripts/migrate-passwords.ts
  */
 
+import { hashPassword } from '../lib/password';
 import prisma from '../lib/prisma';
-import { hashPassword } from '../utils/password';
-import { createSecureBackup, secureDeleteBackup } from '../utils/secure-backup';
+import { createSecureBackup, secureDeleteBackup } from '../lib/secure-backup';
 
 async function migratePasswords() {
   console.log('🔄 パスワードマイグレーション開始...');

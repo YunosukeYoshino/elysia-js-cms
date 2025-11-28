@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import app from '../src/index';
-import prisma from '../src/lib/prisma';
+import app from '../index';
+import prisma from '../lib/prisma';
 
 describe('Posts Routes', () => {
   const testEmail = `test-posts-${Date.now()}@example.com`;

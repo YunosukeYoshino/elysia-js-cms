@@ -17,8 +17,8 @@
     "check": "bun biome check .",
     "lint:fix": "bun biome check --write .",
     "typecheck": "bun tsc --noEmit --skipLibCheck",
-    "prepare-db:dev": "bun scripts/prepare-db.ts development",
-    "prepare-db:test": "NODE_ENV=test bun scripts/prepare-db.ts test",
+    "prepare-db:dev": "bun src/scripts/prepare-db.ts development",
+    "prepare-db:test": "NODE_ENV=test bun src/scripts/prepare-db.ts test",
     "prepare": "husky",
     "pre-commit": "lint-staged && bun test"
   },

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { jwt } from '@elysiajs/jwt';
-import app from '../src/index';
-import prisma from '../src/lib/prisma';
+import app from '../index';
+import prisma from '../lib/prisma';
 
 describe('Auth Routes', () => {
   const testEmail = `test-${Date.now()}@example.com`;

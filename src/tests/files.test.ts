@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import app from '../src/index';
-import prisma from '../src/lib/prisma';
+import app from '../index';
+import prisma from '../lib/prisma';
 
 describe('Files Routes', () => {
   const testEmail = `test-files-${Date.now()}@example.com`;
