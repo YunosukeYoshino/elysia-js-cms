@@ -3,7 +3,10 @@ import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authenticated, authMiddleware } from '../middlewares/auth';
 
-// 投稿関連のルーティング定義
+/**
+ * 投稿関連のルーティング定義
+ * @description 投稿の作成、取得、更新、削除を行うエンドポイント
+ */
 export const postsRouter = new Elysia({ prefix: '/posts' })
   .use(authMiddleware)
   // 全ての投稿を取得

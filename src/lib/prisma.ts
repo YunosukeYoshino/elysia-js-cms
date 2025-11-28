@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
-// PrismaClient インスタンスをエクスポート
+/**
+ * Prismaクライアントインスタンス
+ * @description データベース操作のためのシングルトンインスタンス
+ */
 const prisma = new PrismaClient();
 
 export default prisma;

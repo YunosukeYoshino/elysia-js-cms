@@ -3,7 +3,10 @@ import { Elysia, t } from 'elysia';
 import prisma from '../lib/prisma';
 import { authenticated, authMiddleware, isAdmin } from '../middlewares/auth';
 
-// カテゴリ関連のルーティング定義
+/**
+ * カテゴリ関連のルーティング定義
+ * @description カテゴリの作成、取得、更新、削除を行うエンドポイント
+ */
 export const categoriesRouter = new Elysia({ prefix: '/categories' })
   .use(authMiddleware)
   // 全てのカテゴリを取得

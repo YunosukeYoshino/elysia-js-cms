@@ -6,6 +6,10 @@ import { categoriesRouter } from './routes/categories';
 import { filesRouter } from './routes/files';
 import { postsRouter } from './routes/posts';
 
+/**
+ * ElysiaJS CMS APIアプリケーション
+ * @description APIのメインエントリーポイント。ミドルウェアとルートを構成します。
+ */
 const app = new Elysia()
   .use(
     swagger({
