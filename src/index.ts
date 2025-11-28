@@ -1,13 +1,20 @@
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { Elysia } from 'elysia';
+import { cachePlugin } from './lib/cache';
 import { authRouter } from './routes/auth';
 import { categoriesRouter } from './routes/categories';
+import { commentsRouter } from './routes/comments';
 import { filesRouter } from './routes/files';
 import { postsRouter } from './routes/posts';
 
-const app = new Elysia()
-  .use(
+const app = new Elysia();
+
+if (process.env.NODE_ENV !== 'test') {
+  app.use(cachePlugin);
+}
+
+app.use(
     swagger({
       documentation: {
         info: {
@@ -20,6 +27,7 @@ const app = new Elysia()
           { name: 'posts', description: '投稿管理エンドポイント' },
           { name: 'categories', description: 'カテゴリ管理エンドポイント' },
           { name: 'files', description: 'ファイル管理エンドポイント' },
+          { name: 'comments', description: 'コメント管理エンドポイント' },
         ],
       },
     }),
@@ -30,7 +38,12 @@ const app = new Elysia()
     () => 'ElysiaJS CMS API - お好みのツールでAPIを探索するには /swagger にアクセスしてください',
   )
   .group('/api', (app) =>
-    app.use(authRouter).use(postsRouter).use(categoriesRouter).use(filesRouter),
+    app
+      .use(authRouter)
+      .use(postsRouter)
+      .use(categoriesRouter)
+      .use(filesRouter)
+      .use(commentsRouter),
   );
 
 if (import.meta.main) {

@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
+import { cachePlugin } from '../lib/cache';
 import prisma from '../lib/prisma';
 import { authenticated, authMiddleware } from '../middlewares/auth';
 
@@ -9,14 +10,38 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 全ての投稿を取得
   .get(
     '/',
-    async ({ query }) => {
-      const { published, authorId, categoryId, take = 10, skip = 0 } = query;
+    async ({ query, cache }) => {
+      const { published, authorId, categoryId, take = 10, skip = 0, search } =
+        query;
+
+      if (cache) {
+        const cacheKey = `posts:${JSON.stringify(query)}`;
+        const cached = cache.get(cacheKey);
+        if (cached) {
+          return cached;
+        }
+      }
 
       const whereClause: Prisma.PostWhereInput = {};
 
       // 公開状態でフィルタリング
       if (published !== undefined) {
         whereClause.published = published === 'true';
+      }
+      // 検索キーワードでフィルタリング
+      if (search) {
+        whereClause.OR = [
+          {
+            title: {
+              contains: search,
+            },
+          },
+          {
+            content: {
+              contains: search,
+            },
+          },
+        ];
       }
 
       // 著者IDでフィルタリング
@@ -65,7 +90,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         categories: post.categories.map((c) => c.category),
       }));
 
-      return {
+      const response = {
         data: formattedPosts,
         meta: {
           total,
@@ -73,6 +98,12 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
           take: Number.parseInt(take as string, 10),
         },
       };
+
+      if (cache) {
+        const cacheKey = `posts:${JSON.stringify(query)}`;
+        cache.set(cacheKey, response, 1000 * 60 * 5); // 5分間キャッシュ
+      }
+      return response;
     },
     {
       query: t.Object({
@@ -81,6 +112,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         categoryId: t.Optional(t.String()),
         take: t.Optional(t.String()),
         skip: t.Optional(t.String()),
+        search: t.Optional(t.String()),
       }),
       detail: {
         tags: ['posts'],
@@ -137,7 +169,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 新しい投稿を作成
   .post(
     '/',
-    async ({ body, user, set }) => {
+    async ({ body, user, set, cache }) => {
       // 認証チェック
       if (!user) {
         set.status = 401;
@@ -180,10 +212,15 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         });
 
         // カテゴリの形式を整える
-        return {
+        const response = {
           ...post,
           categories: post.categories.map((c) => c.category),
         };
+
+        if (cache) {
+          cache.invalidate('posts:');
+        }
+        return response;
       } catch (error) {
         set.status = 400;
         return { error: '投稿の作成に失敗しました', details: error };
@@ -208,7 +245,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 投稿を更新
   .put(
     '/:id',
-    async ({ params, body, user, set }) => {
+    async ({ params, body, user, set, cache }) => {
       // 認証チェック
       if (!user) {
         set.status = 401;
@@ -283,11 +320,15 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
           return updated;
         });
 
-        // カテゴリの形式を整える
-        return {
+        const response = {
           ...updatedPost,
           categories: updatedPost.categories.map((c) => c.category),
         };
+
+        if (cache) {
+          cache.invalidate('posts:');
+        }
+        return response;
       } catch (error) {
         set.status = 400;
         return { error: '投稿の更新に失敗しました', details: error };
@@ -315,7 +356,7 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 投稿を削除
   .delete(
     '/:id',
-    async ({ params, user, set }) => {
+    async ({ params, user, set, cache }) => {
       // 認証チェック
       if (!user) {
         set.status = 401;
@@ -354,6 +395,9 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
           });
         });
 
+        if (cache) {
+          cache.invalidate('posts:');
+        }
         return { message: '投稿を削除しました' };
       } catch (error) {
         set.status = 400;
