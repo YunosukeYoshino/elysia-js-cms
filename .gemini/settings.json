@@ -1,8 +1,5 @@
 {
   "model": {
     "name": "gemini-3-pro-preview"
-  },
-  "security": {
-    "disableYoloMode": false
   }
 }
