@@ -21,6 +21,7 @@ model User {
   updatedAt            DateTime       @updatedAt
   files                File[]
   posts                Post[]
+  comments             Comment[]
   refreshTokens        RefreshToken[]
 }
 
@@ -33,7 +34,21 @@ model Post {
   updatedAt  DateTime         @updatedAt
   authorId   Int
   categories CategoryOnPost[]
+  comments   Comment[]
   author     User             @relation(fields: [authorId], references: [id])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  Int
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    Int
+
+  @@map("comments")
 }
 
 model Category {
