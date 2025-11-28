@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 **注意**: 本リポジトリのルールセットは `GLOBAL_RULES.md` に集約されています。
 
