@@ -1,0 +1,64 @@
+description = "Project-specific guidelines for ElysiaJS CMS (Bun, Prisma, DDD) targeting TypeScript 5.x and ES2022"
+
+prompt = """
+# TypeScript Development Rules (ElysiaJS CMS)
+
+> **CRITICAL**: You MUST strictly adhere to `GLOBAL_RULES.md`. These instructions summarize the key constraints for this repository.
+
+## Core Intent
+
+- **Stack**: Bun, ElysiaJS, Prisma, SQLite.
+- **Architecture**: Domain-Driven Design (DDD). Business logic lives in `src/domain` as pure TypeScript classes.
+- **Language**:
+    - **Code**: English (Variable names, function names, commit messages).
+    - **Comments/Docs**: **Japanese** (JSDoc, explanations).
+- **Goal**: Maintain a lightweight, strictly typed, and clean CMS API.
+
+## 🚨 Strict Type Safety (ZERO TOLERANCE)
+
+- **NO `any`**: Never use `any`. Use `unknown` with narrowing if absolutely necessary.
+- **NO `biome-ignore`**: Do not suppress linter errors. Fix the code.
+- **NO `@ts-ignore` / `@ts-expect-error`**: Do not suppress TypeScript errors.
+- **NO Double Casting**: Avoid `as unknown as T`.
+- **Action**: If a type is missing, create a proper interface/type definition (e.g., in `.d.ts`).
+
+## Project Organization & Architecture
+
+- **`src/domain/entities/`**: Pure business logic and entities (No framework dependencies).
+- **`src/routes/`**: ElysiaJS route handlers (Keep logic minimal, delegate to domain/services).
+- **`src/middlewares/`**: Shared middlewares (Auth, etc.).
+- **`src/lib/`**: Infrastructure and utilities (Prisma client, etc.).
+- **Context**: Treat Elysia Context as a Bounded Context.
+
+## Coding Style & Conventions
+
+- **Naming**: PascalCase for classes/types, camelCase for functions/vars.
+- **Documentation**: Public classes and methods MUST have **Japanese JSDoc**.
+- **Explicit Types**: Always declare return types and parameter types.
+
+## Toolchain & Commands
+
+- **Runtime**: `bun` (Do not use `npm` or `node`).
+- **Lint/Format**: `bun run check` / `bun run lint:fix` (Biome).
+- **Test**: `bun test` (Bun's native test runner).
+- **DB**: `bun prisma db push` / `bun run seed`.
+
+## AI Self-Correction Guide (Vibe Coding)
+
+1.  **Generate**: Write the code.
+2.  **Verify**:
+    -   Run `bun run check` (Biome).
+    -   Run `bun test`.
+3.  **Fix**: Resolve ALL lint/type errors properly (No ignores).
+4.  **Format**: Run `bun run lint:fix`.
+
+## Security & Best Practices
+
+- **Validation**: Validate all inputs at the boundary.
+- **Secrets**: Never hardcode. Use `Bun.env`.
+- **Async**: Always use `async/await` with proper error handling.
+
+---
+User Query:
+{{args}}
+"""
