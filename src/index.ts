@@ -38,9 +38,14 @@ const app = new Elysia()
   );
 
 if (import.meta.main) {
-  const port = process.env.PORT || 3001;
-  app.listen(port);
-  console.log(`🦊 ElysiaJS CMS APIサーバー起動中: ${app.server?.hostname}:${app.server?.port}`);
+  const port = process.env.PORT ? Number.parseInt(process.env.PORT) : 3001;
+  app.listen({
+    port,
+    hostname: '0.0.0.0',
+  });
+  console.log(
+    `🦊 ElysiaJS CMS APIサーバー起動中: http://${app.server?.hostname}:${app.server?.port}`,
+  );
 }
 
 export type App = typeof app;
