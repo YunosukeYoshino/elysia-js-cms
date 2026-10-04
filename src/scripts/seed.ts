@@ -1,7 +1,7 @@
 import prisma from '../lib/prisma';
 
 // 初期データをデータベースに追加するシードスクリプト
-async function main() {
+async function main(): Promise<void> {
   console.log('🌱 データベースのシード処理を開始します...');
 
   // 初期カテゴリの作成
@@ -48,6 +48,21 @@ async function main() {
       },
     }),
   ]);
+
+  const getCategoryId = (slug: string): number => {
+    const category = categories.find((entry) => entry.slug === slug);
+    if (!category) throw new Error('Missing seed category: ' + slug);
+    return category.id;
+  };
+  const linkCategories = async (data: { postId: number; categoryId: number }[]): Promise<void> => {
+    for (const row of data) {
+      await prisma.categoryOnPost.upsert({
+        where: { postId_categoryId: row },
+        update: {},
+        create: row,
+      });
+    }
+  };
 
   console.log(`✅ ${categories.length}件のカテゴリを作成しました`);
 
@@ -117,23 +132,20 @@ console.log(\`Server is running at \${app.server?.hostname}:\${app.server?.port}
   });
 
   // カテゴリを投稿に関連付け
-  await prisma.categoryOnPost.createMany({
-    data: [
-      {
-        postId: post1.id,
-        categoryId: categories.find((c) => c.slug === 'technology')?.id,
-      },
-      {
-        postId: post1.id,
-        categoryId: categories.find((c) => c.slug === 'programming')?.id,
-      },
-      {
-        postId: post1.id,
-        categoryId: categories.find((c) => c.slug === 'web')?.id,
-      },
-    ],
-    skipDuplicates: true,
-  });
+  await linkCategories([
+    {
+      postId: post1.id,
+      categoryId: getCategoryId('technology'),
+    },
+    {
+      postId: post1.id,
+      categoryId: getCategoryId('programming'),
+    },
+    {
+      postId: post1.id,
+      categoryId: getCategoryId('web'),
+    },
+  ]);
 
   const post2 = await prisma.post.upsert({
     where: { id: 2 },
@@ -192,19 +204,16 @@ Prismaを使うことで、データベース操作がTypeScriptの型システ�
   });
 
   // カテゴリを投稿に関連付け
-  await prisma.categoryOnPost.createMany({
-    data: [
-      {
-        postId: post2.id,
-        categoryId: categories.find((c) => c.slug === 'programming')?.id,
-      },
-      {
-        postId: post2.id,
-        categoryId: categories.find((c) => c.slug === 'web')?.id,
-      },
-    ],
-    skipDuplicates: true,
-  });
+  await linkCategories([
+    {
+      postId: post2.id,
+      categoryId: getCategoryId('programming'),
+    },
+    {
+      postId: post2.id,
+      categoryId: getCategoryId('web'),
+    },
+  ]);
 
   const post3 = await prisma.post.upsert({
     where: { id: 3 },
@@ -238,19 +247,16 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
   });
 
   // カテゴリを投稿に関連付け
-  await prisma.categoryOnPost.createMany({
-    data: [
-      {
-        postId: post3.id,
-        categoryId: categories.find((c) => c.slug === 'technology')?.id,
-      },
-      {
-        postId: post3.id,
-        categoryId: categories.find((c) => c.slug === 'mobile')?.id,
-      },
-    ],
-    skipDuplicates: true,
-  });
+  await linkCategories([
+    {
+      postId: post3.id,
+      categoryId: getCategoryId('technology'),
+    },
+    {
+      postId: post3.id,
+      categoryId: getCategoryId('mobile'),
+    },
+  ]);
 
   const post4 = await prisma.post.upsert({
     where: { id: 4 },
@@ -284,15 +290,12 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
   });
 
   // カテゴリを投稿に関連付け
-  await prisma.categoryOnPost.createMany({
-    data: [
-      {
-        postId: post4.id,
-        categoryId: categories.find((c) => c.slug === 'design')?.id,
-      },
-    ],
-    skipDuplicates: true,
-  });
+  await linkCategories([
+    {
+      postId: post4.id,
+      categoryId: getCategoryId('design'),
+    },
+  ]);
 
   console.log(`✅ ${4}件の投稿を作成しました`);
   console.log('🎉 シード処理が完了しました!');
