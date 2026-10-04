@@ -2,7 +2,17 @@ import { expect, it } from 'bun:test';
 import { getJwtSecret } from '../lib/jwt-config';
 
 const fallback = getJwtSecret({ NODE_ENV: 'test' });
-for (const secret of [undefined, '', '  ', fallback, ' ' + fallback + ' ']) {
+for (const secret of [
+  undefined,
+  '',
+  '  ',
+  fallback,
+  ' ' + fallback + ' ',
+  'your-secret-key-for-jwt-tokens',
+  ' your-secret-key-for-jwt-tokens ',
+  'test-secret-key-for-testing-only',
+  ' test-secret-key-for-testing-only ',
+]) {
   it('rejects unsafe production configuration', () => {
     expect(() => getJwtSecret({ NODE_ENV: 'production', JWT_SECRET: secret })).toThrow(
       'JWT_SECRET',
@@ -26,8 +36,14 @@ it('refuses to initialize production auth without a secret', async () => {
     stdout: 'pipe',
     stderr: 'pipe',
   });
-  expect(await child.exited).not.toBe(0);
-  expect(await new Response(child.stderr).text()).toContain('JWT_SECRET');
+  const timer = setTimeout(() => child.kill(), 2000);
+  try {
+    expect(await child.exited).not.toBe(0);
+    expect(await new Response(child.stderr).text()).toContain('JWT_SECRET');
+  } finally {
+    clearTimeout(timer);
+    if (child.exitCode === null) child.kill();
+  }
 });
 it('starts in production mode even when the caller is in development', async () => {
   const child = Bun.spawn([process.execPath, 'run', 'start'], {
@@ -35,6 +51,12 @@ it('starts in production mode even when the caller is in development', async () 
     stdout: 'pipe',
     stderr: 'pipe',
   });
-  expect(await child.exited).not.toBe(0);
-  expect(await new Response(child.stderr).text()).toContain('JWT_SECRET');
+  const timer = setTimeout(() => child.kill(), 2000);
+  try {
+    expect(await child.exited).not.toBe(0);
+    expect(await new Response(child.stderr).text()).toContain('JWT_SECRET');
+  } finally {
+    clearTimeout(timer);
+    if (child.exitCode === null) child.kill();
+  }
 });
