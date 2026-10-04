@@ -108,6 +108,11 @@ describe('Auth Routes', () => {
     expect(data.user.email).toBe(testEmail);
 
     // 後続のテストで使用するためにトークンを保存
+    const claims: { exp: number } = JSON.parse(
+      Buffer.from(data.accessToken.split('.')[1], 'base64url').toString(),
+    );
+    expect(claims.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    expect(claims.exp).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + data.expiresIn);
     authToken = data.accessToken;
   });
 
@@ -132,7 +137,7 @@ describe('Auth Routes', () => {
   });
 
   // ユーザー情報取得のテスト
-  it('should get authenticated user profile or require auth', async () => {
+  it('should get authenticated user profile', async () => {
     // 認証トークンが取得できていることを確認
     expect(authToken).toBeDefined();
 
@@ -144,14 +149,9 @@ describe('Auth Routes', () => {
       }),
     );
 
-    // 認証が必要または成功の両方のケースに対応
-    if (response.status === 200) {
-      const data = await response.json();
-      expect(data.user).toBeDefined();
-      expect(data.user.email).toBe(testEmail);
-    } else {
-      expect(response.status).toBe(401);
-    }
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.user.email).toBe(testEmail);
   });
 
   // 認証なしでのプロフィール取得失敗のテスト
@@ -163,3 +163,23 @@ describe('Auth Routes', () => {
     expect(data.error).toBeDefined();
   });
 });
+
+for (const payload of [
+  { userId: 'invalid', type: 'access' },
+  { userId: 1, type: 'refresh' },
+  { userId: 1, type: 'access', exp: 1 },
+  { userId: 1, type: 'access' },
+]) {
+  it('rejects invalid access-token claims', async () => {
+    const signer = jwt({
+      secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
+    });
+    const token = await signer.decorator.jwt.sign(payload);
+    const response = await app.handle(
+      new Request('http://localhost/api/auth/me', {
+        headers: { Authorization: 'Bearer ' + token },
+      }),
+    );
+    expect(response.status).toBe(401);
+  });
+}
