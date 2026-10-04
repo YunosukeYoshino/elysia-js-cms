@@ -134,16 +134,12 @@ export const authRouter = new Elysia({ prefix: '/auth' })
       await resetLoginAttempts(user.id);
 
       // アクセストークンを生成（短い有効期限）
-      const accessToken = await jwt.sign(
-        {
-          userId: user.id,
-          role: user.role,
-          type: 'access',
-        },
-        {
-          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`,
-        },
-      );
+      const accessToken = await jwt.sign({
+        userId: user.id,
+        role: user.role,
+        type: 'access',
+        exp: Math.floor(Date.now() / 1000) + AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+      });
 
       // リフレッシュトークンを生成
       const refreshToken = generateSecureToken(64);
@@ -198,16 +194,12 @@ export const authRouter = new Elysia({ prefix: '/auth' })
       }
 
       // 新しいアクセストークンを生成
-      const accessToken = await jwt.sign(
-        {
-          userId: user.id,
-          role: user.role,
-          type: 'access',
-        },
-        {
-          expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES}m`,
-        },
-      );
+      const accessToken = await jwt.sign({
+        userId: user.id,
+        role: user.role,
+        type: 'access',
+        exp: Math.floor(Date.now() / 1000) + AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+      });
 
       // 古いリフレッシュトークンを削除し、新しいものを生成
       await revokeRefreshToken(refreshToken);

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import app from '../index';
 import prisma from '../lib/prisma';
+import { authMiddleware } from '../middlewares/auth';
 
 describe('Categories Routes', () => {
   const testEmail = `test-admin-${Date.now()}@example.com`;
@@ -66,10 +67,7 @@ describe('Categories Routes', () => {
       }),
     );
 
-    // 注: 現在の実装では認証なしでも201を返す可能性があります。
-    // これはセキュリティ上の問題であり、実装を修正して認証を強制すべきです。
-    // TODO: 実装を修正して、認証なしの場合は常に401を返すようにする
-    expect([201, 401, 403]).toContain(response.status);
+    expect(response.status).toBe(401);
 
     // 成功した場合は作成されたカテゴリを検証し、削除
     if (response.status === 201 || response.status === 200) {
@@ -111,10 +109,7 @@ describe('Categories Routes', () => {
       }),
     );
 
-    // 注: 現在の実装では認証チェックが不十分な可能性があります。
-    // これはセキュリティ上の問題であり、実装を修正して認証を強制すべきです。
-    // TODO: 実装を修正して、認証なしの場合は常に401または403を返すようにする
-    expect([200, 401, 403, 404]).toContain(response.status);
+    expect(response.status).toBe(401);
   });
 
   // 認証なしでのカテゴリ削除のテスト - セキュリティ上の問題を特定
@@ -125,9 +120,40 @@ describe('Categories Routes', () => {
       }),
     );
 
-    // 注: 現在の実装では認証チェックが不十分な可能性があります。
-    // これはセキュリティ上の問題であり、実装を修正して認証を強制すべきです。
-    // TODO: 実装を修正して、認証なしの場合は常に401または403を返すようにする
-    expect([200, 401, 403, 404]).toContain(response.status);
+    expect(response.status).toBe(401);
+  });
+  it('enforces real category role permissions', async () => {
+    const slug = 'role-check-' + Date.now();
+    const category = await prisma.category.create({ data: { name: slug, slug } });
+    const token = await authMiddleware.decorator.jwt.sign({
+      userId,
+      type: 'access',
+      exp: Math.floor(Date.now() / 1000) + 60,
+    });
+    try {
+      for (const role of ['user', 'admin']) {
+        await prisma.user.update({ where: { id: userId }, data: { role } });
+        for (const method of ['POST', 'PUT', 'DELETE']) {
+          const url =
+            'http://localhost/api/categories' + (method === 'POST' ? '' : '/' + category.id);
+          const response = await app.handle(
+            new Request(url, {
+              method,
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+              body:
+                method === 'DELETE'
+                  ? undefined
+                  : JSON.stringify({
+                      name: slug + method,
+                      ...(method === 'POST' ? { slug: slug + '-new' } : {}),
+                    }),
+            }),
+          );
+          expect(response.status).toBe(role === 'user' ? 403 : method === 'POST' ? 201 : 200);
+        }
+      }
+    } finally {
+      await prisma.category.deleteMany({ where: { slug: { startsWith: slug } } });
+    }
   });
 });

@@ -8,6 +8,7 @@ describe('Auth Routes', () => {
   const testPassword = 'TestPass123!';
   const testName = 'Test User';
   let authToken: string;
+  let refreshToken: string;
 
   // JWT設定をアプリケーションと同じものを使用
   const _jwtInstance = jwt({
@@ -108,7 +109,13 @@ describe('Auth Routes', () => {
     expect(data.user.email).toBe(testEmail);
 
     // 後続のテストで使用するためにトークンを保存
+    const claims: { exp: number } = JSON.parse(
+      Buffer.from(data.accessToken.split('.')[1], 'base64url').toString(),
+    );
+    expect(claims.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    expect(claims.exp).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + data.expiresIn);
     authToken = data.accessToken;
+    refreshToken = data.refreshToken;
   });
 
   // 不正な認証情報でのログイン失敗のテスト
@@ -132,7 +139,7 @@ describe('Auth Routes', () => {
   });
 
   // ユーザー情報取得のテスト
-  it('should get authenticated user profile or require auth', async () => {
+  it('should get authenticated user profile', async () => {
     // 認証トークンが取得できていることを確認
     expect(authToken).toBeDefined();
 
@@ -144,14 +151,9 @@ describe('Auth Routes', () => {
       }),
     );
 
-    // 認証が必要または成功の両方のケースに対応
-    if (response.status === 200) {
-      const data = await response.json();
-      expect(data.user).toBeDefined();
-      expect(data.user.email).toBe(testEmail);
-    } else {
-      expect(response.status).toBe(401);
-    }
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.user.email).toBe(testEmail);
   });
 
   // 認証なしでのプロフィール取得失敗のテスト
@@ -161,5 +163,52 @@ describe('Auth Routes', () => {
     expect(response.status).toBe(401);
     const data = await response.json();
     expect(data.error).toBeDefined();
+  });
+
+  for (const payload of [
+    { userId: 'invalid' },
+    { type: 'refresh' },
+    { exp: 1 },
+    { exp: undefined },
+  ]) {
+    it('rejects invalid access-token claims', async () => {
+      const signer = jwt({
+        secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
+      });
+      const token = await signer.decorator.jwt.sign({
+        userId: (await prisma.user.findUniqueOrThrow({ where: { email: testEmail } })).id,
+        type: 'access',
+        exp: Math.floor(Date.now() / 1000) + 60,
+        ...payload,
+      });
+      const response = await app.handle(
+        new Request('http://localhost/api/auth/me', {
+          headers: { Authorization: 'Bearer ' + token },
+        }),
+      );
+      expect(response.status).toBe(401);
+    });
+  }
+
+  it('refreshes expiring tokens and authenticates the renewed token', async () => {
+    const response = await app.handle(
+      new Request('http://localhost/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    const claims = await _jwtInstance.decorator.jwt.verify(data.accessToken);
+    if (!claims) throw new Error('Invalid refreshed token');
+    expect(claims.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    expect(claims.exp).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + data.expiresIn);
+    const me = await app.handle(
+      new Request('http://localhost/api/auth/me', {
+        headers: { Authorization: 'Bearer ' + data.accessToken },
+      }),
+    );
+    expect(me.status).toBe(200);
   });
 });
