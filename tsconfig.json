@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "strictNullChecks": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     /* Visit https://aka.ms/tsconfig to read more about this file */
 
     /* Projects */

@@ -64,8 +64,9 @@ export const authMiddleware = new Elysia()
       };
     }
 
-    const userId = Number(payload.userId);
+    const userId = payload.userId;
     if (
+      typeof userId !== 'number' ||
       !Number.isSafeInteger(userId) ||
       userId <= 0 ||
       payload.type !== 'access' ||
