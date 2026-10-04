@@ -1,5 +1,6 @@
 import { jwt } from '@elysiajs/jwt';
 import { type Context, Elysia } from 'elysia';
+import { getJwtSecret } from '../lib/jwt-config';
 import prisma from '../lib/prisma';
 
 /**
@@ -36,7 +37,7 @@ export const authMiddleware = new Elysia()
   .use(
     jwt({
       name: 'jwt',
-      secret: process.env.JWT_SECRET || 'default-secret-for-testing-please-change-in-prod',
+      secret: getJwtSecret(),
     }),
   )
   .derive({ as: 'scoped' }, async ({ jwt, headers }): Promise<AuthContext> => {
