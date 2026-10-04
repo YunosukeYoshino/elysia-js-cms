@@ -29,3 +29,12 @@ it('refuses to initialize production auth without a secret', async () => {
   expect(await child.exited).not.toBe(0);
   expect(await new Response(child.stderr).text()).toContain('JWT_SECRET');
 });
+it('starts in production mode even when the caller is in development', async () => {
+  const child = Bun.spawn([process.execPath, 'run', 'start'], {
+    env: { ...process.env, NODE_ENV: 'development', JWT_SECRET: '' },
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  expect(await child.exited).not.toBe(0);
+  expect(await new Response(child.stderr).text()).toContain('JWT_SECRET');
+});
