@@ -173,3 +173,8 @@ src/
 <div align="center">
   <sub>Built with ❤️ using <a href="https://elysiajs.com">ElysiaJS</a> and <a href="https://bun.sh">Bun</a></sub>
 </div>
+### 本番環境のJWT設定
+
+NODE_ENV=production では JWT_SECRET が必須です。未設定・空白・既定のテスト値なら起動を停止します。開発・テストの既定値は維持されます。
+
+bun run start は本番モードで起動します。開発には bun run dev を使用してください。
