@@ -27,149 +27,155 @@ import { authRateLimit, registerRateLimit } from '../middlewares/rate-limit';
 export const authRouter = new Elysia({ prefix: '/auth' })
   .use(authMiddleware)
   // ユーザー登録エンドポイント
-  .use(registerRateLimit)
-  .post(
-    '/register',
-    async ({ body, set }) => {
-      const { email, password, name } = body;
+  .group(
+    '',
+    (app) =>
+      app.use(registerRateLimit).post(
+        '/register',
+        async ({ body, set }) => {
+          const { email, password, name } = body;
 
-      // 既存ユーザーの確認
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
-      });
+          // 既存ユーザーの確認
+          const existingUser = await prisma.user.findUnique({
+            where: { email },
+          });
 
-      if (existingUser) {
-        set.status = 400;
-        return { error: 'すでに登録されているメールアドレスです' };
-      }
+          if (existingUser) {
+            set.status = 400;
+            return { error: 'すでに登録されているメールアドレスです' };
+          }
 
-      // パスワード強度チェック
-      const passwordValidation = validatePasswordStrength(password);
-      if (!passwordValidation.isValid) {
-        set.status = 400;
-        return {
-          error: 'パスワードが要件を満たしていません',
-          details: passwordValidation.errors,
-        };
-      }
+          // パスワード強度チェック
+          const passwordValidation = validatePasswordStrength(password);
+          if (!passwordValidation.isValid) {
+            set.status = 400;
+            return {
+              error: 'パスワードが要件を満たしていません',
+              details: passwordValidation.errors,
+            };
+          }
 
-      try {
-        // パスワードをハッシュ化
-        const { hash } = await hashPassword(password);
+          try {
+            // パスワードをハッシュ化
+            const { hash } = await hashPassword(password);
 
-        const user = await prisma.user.create({
-          data: {
-            email,
-            password: hash,
-            name,
-            role: 'user',
-          },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            role: true,
-          },
-        });
+            const user = await prisma.user.create({
+              data: {
+                email,
+                password: hash,
+                name,
+                role: 'user',
+              },
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+              },
+            });
 
-        return {
-          message: 'ユーザー登録が完了しました',
-          user,
-        };
-      } catch (_error) {
-        set.status = 500;
-        return { error: 'ユーザー登録に失敗しました' };
-      }
-    },
-    {
-      body: t.Object({
-        email: t.String({ format: 'email' }),
-        password: t.String({ minLength: 8, maxLength: 128 }),
-        name: t.Optional(t.String()),
-      }),
-      detail: {
-        tags: ['auth'],
-        summary: '新規ユーザー登録',
-        description: 'アカウントを作成します',
-      },
-    },
-  )
-  // ログインエンドポイント
-  .use(authRateLimit)
-  .post(
-    '/login',
-    async ({ body, set, jwt }) => {
-      const { email, password } = body;
-
-      // ユーザーの存在確認
-      const user = await prisma.user.findUnique({
-        where: { email },
-      });
-
-      if (!user) {
-        set.status = 401;
-        return { error: 'メールアドレスまたはパスワードが正しくありません' };
-      }
-
-      // アカウントロック状態をチェック
-      const { isLocked, lockedUntil } = await checkAccountLockByEmail(email);
-      if (isLocked && lockedUntil) {
-        set.status = 423;
-        return {
-          error: `アカウントがロックされています。${lockedUntil.toLocaleString('ja-JP')}以降に再試行してください。`,
-        };
-      }
-
-      // パスワード検証
-      const passwordValid = await verifyPassword(password, user.password);
-
-      if (!passwordValid) {
-        // ログイン失敗時の処理
-        await incrementLoginAttempts(user.id);
-        set.status = 401;
-        return { error: 'メールアドレスまたはパスワードが正しくありません' };
-      }
-
-      // ログイン成功時の処理
-      await resetLoginAttempts(user.id);
-
-      // アクセストークンを生成（短い有効期限）
-      const accessToken = await jwt.sign({
-        userId: user.id,
-        role: user.role,
-        type: 'access',
-        exp: Math.floor(Date.now() / 1000) + AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-      });
-
-      // リフレッシュトークンを生成
-      const refreshToken = generateSecureToken(64);
-      await createRefreshToken(user.id, refreshToken);
-
-      return {
-        accessToken,
-        refreshToken,
-        expiresIn: AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60, // 秒単位
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
+            return {
+              message: 'ユーザー登録が完了しました',
+              user,
+            };
+          } catch (_error) {
+            set.status = 500;
+            return { error: 'ユーザー登録に失敗しました' };
+          }
         },
-      };
-    },
-    {
-      body: t.Object({
-        email: t.String({ format: 'email' }),
-        password: t.String(),
-      }),
-      detail: {
-        tags: ['auth'],
-        summary: 'ログイン',
-        description: 'ユーザー認証を行いJWTトークンを取得します',
-      },
-    },
+        {
+          body: t.Object({
+            email: t.String({ format: 'email' }),
+            password: t.String({ minLength: 8, maxLength: 128 }),
+            name: t.Optional(t.String()),
+          }),
+          detail: {
+            tags: ['auth'],
+            summary: '新規ユーザー登録',
+            description: 'アカウントを作成します',
+          },
+        },
+      ),
+    // ログインエンドポイント
   )
-  // リフレッシュトークンエンドポイント
+  .group(
+    '',
+    (app) =>
+      app.use(authRateLimit).post(
+        '/login',
+        async ({ body, set, jwt }) => {
+          const { email, password } = body;
+
+          // ユーザーの存在確認
+          const user = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          if (!user) {
+            set.status = 401;
+            return { error: 'メールアドレスまたはパスワードが正しくありません' };
+          }
+
+          // アカウントロック状態をチェック
+          const { isLocked, lockedUntil } = await checkAccountLockByEmail(email);
+          if (isLocked && lockedUntil) {
+            set.status = 423;
+            return {
+              error: `アカウントがロックされています。${lockedUntil.toLocaleString('ja-JP')}以降に再試行してください。`,
+            };
+          }
+
+          // パスワード検証
+          const passwordValid = await verifyPassword(password, user.password);
+
+          if (!passwordValid) {
+            // ログイン失敗時の処理
+            await incrementLoginAttempts(user.id);
+            set.status = 401;
+            return { error: 'メールアドレスまたはパスワードが正しくありません' };
+          }
+
+          // ログイン成功時の処理
+          await resetLoginAttempts(user.id);
+
+          // アクセストークンを生成（短い有効期限）
+          const accessToken = await jwt.sign({
+            userId: user.id,
+            role: user.role,
+            type: 'access',
+            exp: Math.floor(Date.now() / 1000) + AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+          });
+
+          // リフレッシュトークンを生成
+          const refreshToken = generateSecureToken(64);
+          await createRefreshToken(user.id, refreshToken);
+
+          return {
+            accessToken,
+            refreshToken,
+            expiresIn: AUTH_CONFIG.ACCESS_TOKEN_EXPIRE_MINUTES * 60, // 秒単位
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+            },
+          };
+        },
+        {
+          body: t.Object({
+            email: t.String({ format: 'email' }),
+            password: t.String(),
+          }),
+          detail: {
+            tags: ['auth'],
+            summary: 'ログイン',
+            description: 'ユーザー認証を行いJWTトークンを取得します',
+          },
+        },
+      ),
+    // リフレッシュトークンエンドポイント
+  )
   .post(
     '/refresh',
     async ({ body, set, jwt }) => {

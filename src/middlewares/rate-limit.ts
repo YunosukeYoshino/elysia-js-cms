@@ -112,7 +112,7 @@ class RateLimiter {
 export function createRateLimit(options: RateLimitOptions, store?: RateLimitStore) {
   const limiter = new RateLimiter(options, store);
 
-  return new Elysia().derive(async ({ request, set }) => {
+  return new Elysia().derive({ as: 'scoped' }, async ({ request, set }) => {
     const clientRequest = { headers: Object.fromEntries(request.headers), url: request.url };
     const result = await limiter.check(clientRequest);
 
