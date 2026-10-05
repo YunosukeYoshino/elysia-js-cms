@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
+import { parsePagination } from '../lib/pagination';
 import prisma from '../lib/prisma';
 import { authenticated, authMiddleware } from '../middlewares/auth';
 
@@ -12,8 +13,14 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
   // 全ての投稿を取得
   .get(
     '/',
-    async ({ query }) => {
-      const { published, authorId, categoryId, take = 10, skip = 0 } = query;
+    async ({ query, set }) => {
+      const { published, authorId, categoryId } = query;
+      const page = parsePagination(query);
+      if (!page) {
+        set.status = 422;
+        return { error: 'Invalid pagination' };
+      }
+      const { take, skip } = page;
 
       const whereClause: Prisma.PostWhereInput = {};
 
@@ -56,8 +63,8 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
           orderBy: {
             createdAt: 'desc',
           },
-          take: Number.parseInt(take as string, 10),
-          skip: Number.parseInt(skip as string, 10),
+          take: take,
+          skip: skip,
         }),
         prisma.post.count({ where: whereClause }),
       ]);
@@ -72,8 +79,8 @@ export const postsRouter = new Elysia({ prefix: '/posts' })
         data: formattedPosts,
         meta: {
           total,
-          skip: Number.parseInt(skip as string, 10),
-          take: Number.parseInt(take as string, 10),
+          skip: skip,
+          take: take,
         },
       };
     },
