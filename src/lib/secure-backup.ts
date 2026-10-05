@@ -42,9 +42,10 @@ export function generateBackupKey(): string {
  * @param options - バックアップ構成オプション
  * @returns 作成されたバックアップファイルへのパス
  */
-export async function createSecureBackup<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(data: T[], options: BackupOptions = {}): Promise<string> {
+export async function createSecureBackup<T extends object = Record<string, unknown>>(
+  data: T[],
+  options: BackupOptions = {},
+): Promise<string> {
   const {
     encrypt = true,
     encryptionKey,

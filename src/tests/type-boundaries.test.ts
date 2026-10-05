@@ -14,7 +14,12 @@ import { filesRouter } from '../routes/files';
 
 it('redacts backup passwords without mutating input records', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'cms-backup-test-'));
-  const records = [{ id: 1, password: 'fixture-password', name: 'test' }];
+  interface BackupRecord {
+    id: number;
+    password: string;
+    name: string;
+  }
+  const records: BackupRecord[] = [{ id: 1, password: 'fixture-password', name: 'test' }];
   try {
     const path = join(directory, 'backup.json');
     await createSecureBackup(records, { encrypt: false, backupPath: path });
@@ -23,7 +28,9 @@ it('redacts backup passwords without mutating input records', async () => {
     expect(backup.metadata.recordCount).toBe(1);
     expect(records[0].password).toBe('fixture-password');
     await createSecureBackup(records, { encrypt: false, includePasswords: true, backupPath: path });
-    expect((await restoreSecureBackup(path)).data).toEqual(records);
+    expect((await restoreSecureBackup(path)).data).toEqual(
+      records.map((record) => ({ ...record })),
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
