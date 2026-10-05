@@ -178,3 +178,12 @@ src/
 NODE_ENV=production では JWT_SECRET が必須です。未設定・空白・既定のテスト値なら起動を停止します。開発・テストの既定値は維持されます。
 
 bun run start は本番モードで起動します。開発には bun run dev を使用してください。
+
+### Rate-limit policy
+
+POST /api/auth/register is limited to 3 requests per hour per client key.
+POST /api/auth/login is independently limited to 5 requests per 15 minutes.
+Successful and failed attempts both count. Refresh, logout, and profile routes
+consume neither quota. The general API limiter is opt-in; it is not attached
+by default. A limiter plugin applies to its immediate consumer's routes;
+use separate groups to isolate policies from sibling routes.
