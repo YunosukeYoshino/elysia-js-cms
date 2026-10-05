@@ -186,7 +186,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
         // サムネイルを読み込んで返す
         const { createReadStream } = await import('node:fs');
         const file = createReadStream(thumbPath);
-        set.headers['Content-Type'] = fileInfo.mimeType;
+        set.headers['Content-Type'] = 'image/jpeg';
         return file;
       } catch (error) {
         console.error('Error serving thumbnail:', error);
