@@ -7,7 +7,13 @@ import { join } from 'node:path';
 it('seeds SQLite twice without duplicate relations', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cms-seed-'));
   const path = join(dir, 'seed.db');
-  const env = { ...process.env, NODE_ENV: 'test', DATABASE_URL: 'file:' + path };
+  const env = {
+    ...process.env,
+    NODE_ENV: 'test',
+    ALLOW_DEMO_SEED: 'true',
+    JWT_SECRET: 'cms-seed-test-secret-32-characters-minimum',
+    DATABASE_URL: `file:${path}`,
+  };
   try {
     for (const args of [
       ['prisma', 'db', 'push', '--skip-generate'],
@@ -25,7 +31,7 @@ it('seeds SQLite twice without duplicate relations', () => {
         ['Post', 4],
         ['CategoryOnPost', 8],
       ] as const) {
-        expect(db.query('SELECT COUNT(*) AS total FROM ' + table).get()).toEqual({ total });
+        expect(db.query(`SELECT COUNT(*) AS total FROM ${table}`).get()).toEqual({ total });
       }
     } finally {
       db.close();

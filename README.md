@@ -84,7 +84,7 @@ Whether you're building a blog, a documentation site, or a portfolio, this API s
 2.  **Seed data (Optional)**
     Populate the database with initial test data.
     ```bash
-    bun run seed
+    NODE_ENV=development ALLOW_DEMO_SEED=true bun run seed
     ```
 
 ### Running the Application
@@ -187,3 +187,9 @@ Successful and failed attempts both count. Refresh, logout, and profile routes
 consume neither quota. The general API limiter is opt-in; it is not attached
 by default. A limiter plugin applies to its immediate consumer's routes;
 use separate groups to isolate policies from sibling routes.
+
+### デモシードの安全設定
+
+開発・テスト専用の公開デモです。破棄可能なローカルSQLiteを明示し、32文字以上の固定JWT_SECRET（未設定ならPEPPER_SECRET）を設定してください。本番では実行できません。
+初期ログイン: admin@example.com / DemoRoot-Only42!、user@example.com / DemoUser-Only42!。既存ユーザーのパスワード・権限は変更しません。
+既存投稿のID衝突対策は未完了のため、既存コンテンツを含むDBには実行しないでください。
