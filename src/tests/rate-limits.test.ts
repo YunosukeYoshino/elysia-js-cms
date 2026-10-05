@@ -1,15 +1,18 @@
 import { beforeAll, expect, it, spyOn } from 'bun:test';
 import { Elysia } from 'elysia';
-import app from '../index';
 import prisma from '../lib/prisma';
 import { MemoryRateLimitStore } from '../lib/rate-limit-store';
 import { createRateLimit } from '../middlewares/rate-limit';
+import { createAuthRouter } from '../routes/auth';
 
 beforeAll(async () => {
   await import('../scripts/prepare-db').then((m) => m.default('test'));
 });
 
 it('isolates registration, login, refresh and profile quotas', async () => {
+  const register = new MemoryRateLimitStore();
+  const auth = new MemoryRateLimitStore();
+  const app = new Elysia().group('/api', (a) => a.use(createAuthRouter({ register, auth })));
   const email = `quota-${Date.now()}@example.com`;
   const password = 'QuotaTest123!';
   const client = '192.0.2.91';
@@ -51,7 +54,12 @@ it('isolates registration, login, refresh and profile quotas', async () => {
     expect((await send('login', { email, password })).status).toBe(429);
     await session();
     expect((await send('login', { email, password }, undefined, '192.0.2.92')).status).toBe(200);
+    expect(
+      (await send('logout', { refreshToken: tokens.refreshToken }, tokens.accessToken)).status,
+    ).toBe(200);
   } finally {
+    await register.destroy();
+    await auth.destroy();
     await prisma.user.deleteMany({ where: { email } });
   }
 });

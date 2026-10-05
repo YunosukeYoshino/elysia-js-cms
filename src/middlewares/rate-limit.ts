@@ -139,12 +139,16 @@ export function createRateLimit(options: RateLimitOptions, store?: RateLimitStor
 /**
  * 認証エンドポイント用のレート制限
  */
-export const authRateLimit = createRateLimit({
-  windowMs: 15 * 60 * 1000, // 15分
-  max: 5, // 15分間に5回まで
-  message: 'ログイン試行回数が上限に達しました。15分後に再試行してください。',
-  keyGenerator: (request: RequestLike) => generateRateLimitKey('auth', request),
-});
+export const createAuthRateLimit = (store?: RateLimitStore) =>
+  createRateLimit(
+    {
+      windowMs: 15 * 60 * 1000, // 15分
+      max: 5, // 15分間に5回まで
+      message: 'ログイン試行回数が上限に達しました。15分後に再試行してください。',
+      keyGenerator: (request: RequestLike) => generateRateLimitKey('auth', request),
+    },
+    store,
+  );
 
 /**
  * 一般API用のレート制限
@@ -158,9 +162,13 @@ export const generalRateLimit = createRateLimit({
 /**
  * 登録エンドポイント用のレート制限
  */
-export const registerRateLimit = createRateLimit({
-  windowMs: 60 * 60 * 1000, // 1時間
-  max: 3, // 1時間に3回まで
-  message: 'アカウント作成の制限に達しました。1時間後に再試行してください。',
-  keyGenerator: (request: RequestLike) => generateRateLimitKey('register', request),
-});
+export const createRegisterRateLimit = (store?: RateLimitStore) =>
+  createRateLimit(
+    {
+      windowMs: 60 * 60 * 1000, // 1時間
+      max: 3, // 1時間に3回まで
+      message: 'アカウント作成の制限に達しました。1時間後に再試行してください。',
+      keyGenerator: (request: RequestLike) => generateRateLimitKey('register', request),
+    },
+    store,
+  );
