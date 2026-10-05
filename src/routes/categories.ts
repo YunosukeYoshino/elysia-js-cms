@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
+import { parsePagination } from '../lib/pagination';
 import prisma from '../lib/prisma';
 import { authenticated, authMiddleware, isAdmin } from '../middlewares/auth';
 
@@ -219,7 +220,13 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
     '/:id/posts',
     async ({ params, query, set }) => {
       const { id } = params;
-      const { published, take = 10, skip = 0 } = query;
+      const { published } = query;
+      const page = parsePagination(query);
+      if (!page) {
+        set.status = 422;
+        return { error: 'Invalid pagination' };
+      }
+      const { take, skip } = page;
 
       // カテゴリの存在確認
       const category = await prisma.category.findUnique({
@@ -264,8 +271,8 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
           orderBy: {
             createdAt: 'desc',
           },
-          take: Number.parseInt(take as string, 10),
-          skip: Number.parseInt(skip as string, 10),
+          take: take,
+          skip: skip,
         }),
         prisma.post.count({ where: whereClause }),
       ]);
@@ -281,8 +288,8 @@ export const categoriesRouter = new Elysia({ prefix: '/categories' })
         meta: {
           total,
           category,
-          skip: Number.parseInt(skip as string, 10),
-          take: Number.parseInt(take as string, 10),
+          skip: skip,
+          take: take,
         },
       };
     },
