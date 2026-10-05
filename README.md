@@ -193,3 +193,7 @@ use separate groups to isolate policies from sibling routes.
 開発・テスト専用の公開デモです。破棄可能なローカルSQLiteを明示し、32文字以上の固定JWT_SECRET（未設定ならPEPPER_SECRET）を設定してください。本番では実行できません。
 初期ログイン: admin@example.com / DemoRoot-Only42!、user@example.com / DemoUser-Only42!。既存ユーザーのパスワード・権限は変更しません。
 既存投稿のID衝突対策は未完了のため、既存コンテンツを含むDBには実行しないでください。
+
+### 開発用パスワードのフォールバック
+
+開発・テストで秘密値が未設定の場合は、再起動後も照合できる固定の開発専用ペッパーを使います。本番で未設定の場合は引き続き停止します。永続的な環境では固定のJWT_SECRETまたはPEPPER_SECRETを設定してください。以前のランダムフォールバックで作られたローカルパスワードは自動復旧しません。
