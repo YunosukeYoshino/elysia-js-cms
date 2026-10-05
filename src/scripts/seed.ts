@@ -1,7 +1,12 @@
+import { assertDemoSeedEnvironment } from '../lib/demo-seed';
+import { hashPassword } from '../lib/password';
 import prisma from '../lib/prisma';
 
 // 初期データをデータベースに追加するシードスクリプト
 async function main(): Promise<void> {
+  assertDemoSeedEnvironment(process.env);
+  const rootHash = (await hashPassword('DemoRoot-Only42!')).hash;
+  const userHash = (await hashPassword('DemoUser-Only42!')).hash;
   console.log('🌱 データベースのシード処理を開始します...');
 
   // 初期カテゴリの作成
@@ -51,7 +56,7 @@ async function main(): Promise<void> {
 
   const getCategoryId = (slug: string): number => {
     const category = categories.find((entry) => entry.slug === slug);
-    if (!category) throw new Error('Missing seed category: ' + slug);
+    if (!category) throw new Error(`Missing seed category: ${slug}`);
     return category.id;
   };
   const linkCategories = async (data: { postId: number; categoryId: number }[]): Promise<void> => {
@@ -73,7 +78,7 @@ async function main(): Promise<void> {
     update: {},
     create: {
       email: 'admin@example.com',
-      password: 'admin123', // 本番では必ずハッシュ化してください！
+      password: rootHash,
       name: '管理者',
       role: 'admin',
     },
@@ -84,7 +89,7 @@ async function main(): Promise<void> {
     update: {},
     create: {
       email: 'user@example.com',
-      password: 'user123', // 本番では必ずハッシュ化してください！
+      password: userHash,
       name: '一般ユーザー',
       role: 'user',
     },
@@ -305,7 +310,7 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
 main()
   .catch((e) => {
     console.error('❌ シード処理中にエラーが発生しました:', e);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(async () => {
     // データベース接続を閉じる
