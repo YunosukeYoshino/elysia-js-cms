@@ -42,7 +42,7 @@ export function generateBackupKey(): string {
  * @param options - バックアップ構成オプション
  * @returns 作成されたバックアップファイルへのパス
  */
-export async function createSecureBackup<T = Record<string, unknown>>(
+export async function createSecureBackup<T extends object = Record<string, unknown>>(
   data: T[],
   options: BackupOptions = {},
 ): Promise<string> {
@@ -55,7 +55,7 @@ export async function createSecureBackup<T = Record<string, unknown>>(
 
   // 機密情報を削除してデータをサニタイズ
   const sanitizedData = data.map((record) => {
-    const sanitized = { ...record };
+    const sanitized: Partial<T> = { ...record };
 
     if (!includePasswords && 'password' in sanitized) {
       // セキュリティのためパスワードフィールドを削除
@@ -65,7 +65,7 @@ export async function createSecureBackup<T = Record<string, unknown>>(
     return sanitized;
   });
 
-  const backupData: SecureBackupData = {
+  const backupData: SecureBackupData<Partial<T>> = {
     metadata: {
       timestamp: new Date().toISOString(),
       version: '1.0',

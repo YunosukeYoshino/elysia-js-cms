@@ -1,8 +1,6 @@
 import { mkdir, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
-import type { User } from '@prisma/client';
+import { basename, join } from 'node:path';
 import { Elysia, t } from 'elysia';
-import { type Fields, type Files, type File as FormidableFile, IncomingForm } from 'formidable';
 import mime from 'mime-types';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,13 +11,6 @@ import { authMiddleware } from '../middlewares/auth';
  * ファイルアップロードのドメインインターフェース
  * @description アップロードされたファイルの型定義
  */
-interface FileUpload extends FormidableFile {
-  filepath: string;
-  originalFilename: string;
-  newFilename: string;
-  size: number;
-}
-
 /**
  * ファイルアップロードのレスポンスインターフェース
  * @description ファイルアップロードの結果を表現するドメインオブジェクト
@@ -59,134 +50,82 @@ export const filesRouter = new Elysia({ prefix: '/files' })
   .use(authMiddleware)
   .post(
     '/upload',
-    async ({
-      request,
-      user,
-      set,
-    }: {
-      request: Request;
-      user: User | null;
-      set: { status: number };
-    }) => {
+    async ({ request, user, set }): Promise<FileUploadResponse> => {
+      if (!user) {
+        set.status = 401;
+        return { success: false, message: 'Unauthorized' };
+      }
+      const maxSize = 10 * 1024 * 1024;
+      const reader = request.body?.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      let upload: FormDataEntryValue | null;
       try {
-        // 認証済みユーザーのIDを取得
-        if (!user) {
-          set.status = 401;
-          return { success: false, message: 'Unauthorized' };
+        if (reader)
+          while (true) {
+            const part = await reader.read();
+            if (part.done) break;
+            total += part.value.byteLength;
+            if (total > maxSize + 64 * 1024) {
+              await reader.cancel();
+              set.status = 413;
+              return { success: false, message: 'Upload too large' };
+            }
+            chunks.push(part.value);
+          }
+        upload = (
+          await new Response(Buffer.concat(chunks), { headers: request.headers }).formData()
+        ).get('file');
+      } catch {
+        set.status = 400;
+        return { success: false, message: 'Invalid multipart upload' };
+      } finally {
+        reader?.releaseLock();
+      }
+      if (!(upload instanceof File)) {
+        set.status = 400;
+        return { success: false, message: 'File not found' };
+      }
+      if (upload.size > maxSize) {
+        set.status = 413;
+        return { success: false, message: 'Upload too large' };
+      }
+      const fileName = uuidv4();
+      const filePath = join(UPLOAD_DIR, fileName);
+      const thumbName = fileName + '_thumb.jpg';
+      const thumbPath = join(THUMBS_DIR, thumbName);
+      try {
+        await Bun.write(filePath, upload);
+        const mimeType = mime.lookup(upload.name) || 'application/octet-stream';
+        let thumbnailPath: string | null = null;
+        if (mimeType.startsWith('image/') && mimeType !== 'image/svg+xml') {
+          await sharp(filePath)
+            .resize(200, 200, { fit: 'inside' })
+            .jpeg({ quality: 80 })
+            .toFile(thumbPath);
+          thumbnailPath = '/thumbnails/' + thumbName;
         }
-        const userId = Number(user.id);
-
-        // アップロードディレクトリの作成
-        try {
-          await mkdir(UPLOAD_DIR, { recursive: true });
-          await mkdir(THUMBS_DIR, { recursive: true });
-        } catch (error) {
-          console.error('ディレクトリの作成に失敗しました:', error);
-          set.status = 500;
-          return { success: false, message: 'サーバーエラー' };
-        }
-
-        // ファイルのアップロード処理
-        const form = new IncomingForm({
-          uploadDir: UPLOAD_DIR,
-          keepExtensions: true,
-          maxFileSize: 10 * 1024 * 1024, // 10MB
+        const file = await prisma.file.create({
+          data: {
+            fileName,
+            originalName: upload.name || 'unknown',
+            mimeType,
+            filePath,
+            fileSize: upload.size,
+            userId: user.id,
+            thumbnailPath,
+          },
         });
-
-        return new Promise<FileUploadResponse>((resolve) => {
-          // formidableとの型互換性を保ちながら、型安全な実装を行う
-          // ElysiaではRequestオブジェクトを直接渡す
-          form.parse(request, async (err: Error | null, _fields: Fields, files: Files) => {
-            if (err) {
-              console.error('ファイルのアップロードに失敗しました:', err);
-              set.status = 500;
-              resolve({
-                success: false,
-                message: 'ファイルのアップロードに失敗しました',
-              });
-              return;
-            }
-
-            // ファイルの型を適切に定義
-            const uploadedFile = files.file?.[0] as FileUpload;
-            if (!uploadedFile) {
-              set.status = 400;
-              resolve({
-                success: false,
-                message: 'ファイルが見つかりません',
-              });
-              return;
-            }
-
-            try {
-              // ファイルの保存とサムネイル生成
-              const fileId = uuidv4();
-              const originalName = uploadedFile.originalFilename || 'unknown';
-              const mimeType = mime.lookup(originalName) || 'application/octet-stream';
-
-              // データベースにファイル情報を保存
-              const fileData = await prisma.file.create({
-                data: {
-                  id: Number(fileId),
-                  fileName: originalName,
-                  originalName,
-                  mimeType,
-                  filePath: uploadedFile.filepath,
-                  fileSize: uploadedFile.size,
-                  userId: userId,
-                },
-              });
-
-              // 画像ファイルの場合、サムネイルを生成
-              if (mimeType.startsWith('image/') && mimeType !== 'image/svg+xml') {
-                const thumbPath = join(THUMBS_DIR, `${fileData.id}_thumb.jpg`);
-                await sharp(uploadedFile.filepath)
-                  .resize(200, 200, { fit: 'inside' })
-                  .jpeg({ quality: 80 })
-                  .toFile(thumbPath);
-
-                await prisma.file.update({
-                  where: { id: fileData.id },
-                  data: {
-                    thumbnailPath: `/thumbnails/${fileData.id}_thumb.jpg`,
-                  },
-                });
-              }
-
-              resolve({
-                success: true,
-                message: 'ファイルのアップロードが完了しました',
-                file: fileData,
-              });
-            } catch (error) {
-              console.error('ファイル処理中にエラーが発生しました:', error);
-              set.status = 500;
-              resolve({
-                success: false,
-                message: 'ファイル処理中にエラーが発生しました',
-              });
-            }
-          });
-        });
+        return { success: true, message: 'File uploaded successfully', file };
       } catch (error) {
-        console.error('File upload error:', error);
+        await Promise.all([filePath, thumbPath].map((path) => unlink(path).catch(() => {})));
+        console.error('File upload failed:', error);
         set.status = 500;
-        return {
-          success: false,
-          message: 'Failed to upload file',
-          error: String(error),
-        };
+        return { success: false, message: 'Failed to upload file' };
       }
     },
-    {
-      detail: {
-        tags: ['files'],
-        summary: 'ファイルをアップロードする',
-        description: '新しいファイルをサーバーにアップロードします',
-      },
-    },
+    { parse: 'none', detail: { tags: ['files'], summary: 'Upload a file' } },
   )
-  // ファイルを提供するエンドポイント
   .get(
     '/content/:fileName',
     async ({ params, set }) => {
@@ -236,7 +175,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
 
         // ファイルの存在確認とMIMEタイプの取得
         const fileInfo = await prisma.file.findFirst({
-          where: { fileName },
+          where: { thumbnailPath: '/thumbnails/' + fileName },
         });
 
         if (!fileInfo || !fileInfo.thumbnailPath) {
@@ -247,7 +186,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
         // サムネイルを読み込んで返す
         const { createReadStream } = await import('node:fs');
         const file = createReadStream(thumbPath);
-        set.headers['Content-Type'] = fileInfo.mimeType;
+        set.headers['Content-Type'] = 'image/jpeg';
         return file;
       } catch (error) {
         console.error('Error serving thumbnail:', error);
@@ -360,15 +299,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
   // ファイルを削除
   .delete(
     '/:id',
-    async ({
-      params,
-      set,
-      user,
-    }: {
-      params: { id: string };
-      set: { status: number };
-      user: User | null;
-    }) => {
+    async ({ params, set, user }) => {
       try {
         // 認証チェック
         if (!user) {
@@ -408,7 +339,7 @@ export const filesRouter = new Elysia({ prefix: '/files' })
 
         // サムネイルがある場合は削除
         if (file.thumbnailPath) {
-          const actualThumbPath = join(THUMBS_DIR, file.fileName);
+          const actualThumbPath = join(THUMBS_DIR, basename(file.thumbnailPath));
           await unlink(actualThumbPath).catch((err) =>
             console.error(`Failed to delete thumbnail ${actualThumbPath}:`, err),
           );

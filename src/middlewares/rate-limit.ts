@@ -96,6 +96,10 @@ class RateLimiter {
     }
   }
 
+  get message(): string {
+    return this.options.message;
+  }
+
   async reset(request: RequestLike): Promise<void> {
     const key = this.options.keyGenerator(request);
     await this.store.delete(key);
@@ -109,24 +113,24 @@ export function createRateLimit(options: RateLimitOptions, store?: RateLimitStor
   const limiter = new RateLimiter(options, store);
 
   return new Elysia().derive(async ({ request, set }) => {
-    const result = await limiter.check(request);
+    const clientRequest = { headers: Object.fromEntries(request.headers), url: request.url };
+    const result = await limiter.check(clientRequest);
 
     // レスポンスヘッダーを設定（標準的なUnixタイムスタンプ形式）
-    set.headers = {
-      ...set.headers,
+    Object.assign(set.headers, {
       'X-RateLimit-Limit': options.max.toString(),
       'X-RateLimit-Remaining': result.remaining.toString(),
       'X-RateLimit-Reset': Math.floor(result.resetTime / 1000).toString(), // Unixタイムスタンプ（秒）
-    };
+    });
 
     if (!result.allowed) {
       set.status = 429;
-      throw new Error(limiter.options.message);
+      throw new Error(limiter.message);
     }
 
     return {
       rateLimit: {
-        reset: () => limiter.reset(request),
+        reset: () => limiter.reset(clientRequest),
       },
     };
   });
