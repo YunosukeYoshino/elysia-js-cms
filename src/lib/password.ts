@@ -42,7 +42,7 @@ function getPepper(): string {
             '本番環境でJWT_SECRET環境変数が設定されていません。セキュリティのため必須です。',
           );
         })()
-      : `dev-fallback-pepper-${randomBytes(16).toString('hex')}`;
+      : 'dev-fallback-pepper-for-local-testing-only';
   }
   return pepper;
 }
