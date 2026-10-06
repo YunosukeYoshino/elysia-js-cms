@@ -1,17 +1,25 @@
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { Elysia } from 'elysia';
+import { responseCompression } from './middlewares/compression';
+import { createContentCache } from './middlewares/content-cache';
+import { domainErrorPlugin } from './middlewares/domain-error';
+import { createHierarchicalRateLimit } from './middlewares/hierarchical-rate-limit';
 import { authRouter } from './routes/auth';
 import { categoriesRouter } from './routes/categories';
 import { filesRouter } from './routes/files';
 import { interactionsRouter } from './routes/interactions';
 import { postsRouter } from './routes/posts';
+import { rateLimitAdminRouter } from './routes/rate-limit-admin';
+import { PostService } from './services/post-service';
 
 /**
  * ElysiaJS CMS APIアプリケーション
  * @description APIのメインエントリーポイント。ミドルウェアとルートを構成します。
  */
 const app = new Elysia()
+  .use(responseCompression)
+  .use(domainErrorPlugin)
   .use(
     swagger({
       documentation: {
@@ -30,13 +38,16 @@ const app = new Elysia()
       },
     }),
   )
-  .use(cors())
+  .use(cors({ origin: (): boolean => true }))
   .get(
     '/',
     () => 'ElysiaJS CMS API - お好みのツールでAPIを探索するには /swagger にアクセスしてください',
   )
   .group('/api', (app) =>
     app
+      .use(createHierarchicalRateLimit())
+      .use(createContentCache({ nextPublication: () => new PostService().nextPublication() }))
+      .use(rateLimitAdminRouter)
       .use(authRouter)
       .use(interactionsRouter)
       .use(postsRouter)

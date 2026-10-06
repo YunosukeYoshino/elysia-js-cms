@@ -18,6 +18,7 @@ import {
   visiblePostWhere,
 } from '../lib/post-visibility';
 import prisma from '../lib/prisma';
+import { hierarchicalRateLimiter } from '../lib/rate-limit-policy';
 import { PostService, PostServiceError, type PostWriteInput } from '../services/post-service';
 
 type SearchResponse = Awaited<ReturnType<PostService['list']>>;
@@ -417,7 +418,10 @@ describe('Post search, publication and injectable service', () => {
       { skip: '-1' },
       { take: '1x' },
     ];
-    for (const query of invalid) expect((await get(query)).status, JSON.stringify(query)).toBe(422);
+    for (const query of invalid) {
+      await hierarchicalRateLimiter.destroy();
+      expect((await get(query)).status, JSON.stringify(query)).toBe(422);
+    }
     for (const id of ['1x', '0', '-1', '1.1', '2147483648'])
       expect((await detail(id)).status).toBe(422);
     expect((await detail('2147483647')).status).toBe(404);

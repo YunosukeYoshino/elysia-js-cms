@@ -115,5 +115,5 @@ export const createAuthRouter = (
       },
     );
 
-// メインアプリでも既定の認証用レート制限を維持する。
-export const authRouter = createAuthRouter();
+// メインアプリでは階層型リミッターだけが admission を担当する。
+export const authRouter = createAuthRouter({ externalRateLimit: true });

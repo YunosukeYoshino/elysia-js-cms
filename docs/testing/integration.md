@@ -88,8 +88,8 @@ HTTP 入力スキーマと認証はルート／ミドルウェア、業務処理
 CI は閾値を毎回検証するため、ドキュメント上のチェックリストだけを成功の証拠にしない。
 
 `createAuthRouter()` は単独利用では従来の認証用レート制限を有効にする。
-メインアプリ用の `authRouter` も既定の認証用レート制限を使用する。
-`externalRateLimit: true` は別の admission をアプリ側で確実に適用する場合だけ指定する。
+メインアプリ用の `authRouter` は `externalRateLimit: true` で作成されるため、
+アプリ側の階層型リミッターと組み合わせる。両方式を重ねて設定値を無効化しない。
 
 通常の `DATABASE_URL` / `REDIS_URL` / JWT・ペッパー秘密値はテストへ引き継ぎません。
 Redis を使うテストは使い捨てサーバーを `REDIS_TEST_URL` で明示します。
