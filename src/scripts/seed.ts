@@ -1,3 +1,4 @@
+import type { Prisma, User } from '@prisma/client';
 import { assertDemoSeedEnvironment } from '../lib/demo-seed';
 import { hashPassword } from '../lib/password';
 import prisma from '../lib/prisma';
@@ -8,11 +9,38 @@ async function main(): Promise<void> {
   const rootHash = (await hashPassword('DemoRoot-Only42!')).hash;
   const userHash = (await hashPassword('DemoUser-Only42!')).hash;
   console.log('🌱 データベースのシード処理を開始します...');
+  await prisma.$transaction(async (client: Prisma.TransactionClient): Promise<void> => {
+    await seedDemoContent(client, rootHash, userHash);
+  });
+  console.log('🎉 シード処理が完了しました!');
+}
 
+/** キーのない既存ユーザーをデモアカウントとして流用しない。 */
+async function createDemoUser(
+  client: Prisma.TransactionClient,
+  data: { demoSeedKey: string; email: string; password: string; name: string; role: string },
+): Promise<User> {
+  const owned: User | null = await client.user.findUnique({
+    where: { demoSeedKey: data.demoSeedKey },
+  });
+  if (owned) return owned;
+  const collision: User | null = await client.user.findUnique({ where: { email: data.email } });
+  if (collision) {
+    throw new Error(`Demo seed refuses to adopt an unmarked existing user: ${data.email}`);
+  }
+  return client.user.create({ data });
+}
+
+/** 全データを単一トランザクションで追加し、衝突時には変更を取り消す。 */
+async function seedDemoContent(
+  client: Prisma.TransactionClient,
+  rootHash: string,
+  userHash: string,
+): Promise<void> {
   // 初期カテゴリの作成
   console.log('📁 カテゴリを作成中...');
   const categories = await Promise.all([
-    prisma.category.upsert({
+    client.category.upsert({
       where: { slug: 'technology' },
       update: {},
       create: {
@@ -20,7 +48,7 @@ async function main(): Promise<void> {
         slug: 'technology',
       },
     }),
-    prisma.category.upsert({
+    client.category.upsert({
       where: { slug: 'design' },
       update: {},
       create: {
@@ -28,7 +56,7 @@ async function main(): Promise<void> {
         slug: 'design',
       },
     }),
-    prisma.category.upsert({
+    client.category.upsert({
       where: { slug: 'programming' },
       update: {},
       create: {
@@ -36,7 +64,7 @@ async function main(): Promise<void> {
         slug: 'programming',
       },
     }),
-    prisma.category.upsert({
+    client.category.upsert({
       where: { slug: 'web' },
       update: {},
       create: {
@@ -44,7 +72,7 @@ async function main(): Promise<void> {
         slug: 'web',
       },
     }),
-    prisma.category.upsert({
+    client.category.upsert({
       where: { slug: 'mobile' },
       update: {},
       create: {
@@ -61,7 +89,7 @@ async function main(): Promise<void> {
   };
   const linkCategories = async (data: { postId: number; categoryId: number }[]): Promise<void> => {
     for (const row of data) {
-      await prisma.categoryOnPost.upsert({
+      await client.categoryOnPost.upsert({
         where: { postId_categoryId: row },
         update: {},
         create: row,
@@ -73,36 +101,31 @@ async function main(): Promise<void> {
 
   // 初期ユーザーの作成
   console.log('👤 ユーザーを作成中...');
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      email: 'admin@example.com',
-      password: rootHash,
-      name: '管理者',
-      role: 'admin',
-    },
+  const admin: User = await createDemoUser(client, {
+    demoSeedKey: 'cms-demo:v1:admin',
+    email: 'admin@example.com',
+    password: rootHash,
+    name: '管理者',
+    role: 'admin',
   });
 
-  const user = await prisma.user.upsert({
-    where: { email: 'user@example.com' },
-    update: {},
-    create: {
-      email: 'user@example.com',
-      password: userHash,
-      name: '一般ユーザー',
-      role: 'user',
-    },
+  const user: User = await createDemoUser(client, {
+    demoSeedKey: 'cms-demo:v1:user',
+    email: 'user@example.com',
+    password: userHash,
+    name: '一般ユーザー',
+    role: 'user',
   });
 
   console.log(`✅ ユーザーを作成しました: 管理者(${admin.email})と一般ユーザー(${user.email})`);
 
   // 初期投稿の作成
   console.log('📝 投稿を作成中...');
-  const post1 = await prisma.post.upsert({
-    where: { id: 1 },
+  const post1 = await client.post.upsert({
+    where: { demoSeedKey: 'cms-demo:v1:elysia-api' },
     update: {},
     create: {
+      demoSeedKey: 'cms-demo:v1:elysia-api',
       title: 'ElysiaJSによるAPIの構築',
       content: `
 # ElysiaJSとは
@@ -152,10 +175,11 @@ console.log(\`Server is running at \${app.server?.hostname}:\${app.server?.port}
     },
   ]);
 
-  const post2 = await prisma.post.upsert({
-    where: { id: 2 },
+  const post2 = await client.post.upsert({
+    where: { demoSeedKey: 'cms-demo:v1:prisma-orm' },
     update: {},
     create: {
+      demoSeedKey: 'cms-demo:v1:prisma-orm',
       title: 'Prisma ORMでデータベース操作を簡単に',
       content: `
 # Prisma ORMとは
@@ -220,10 +244,11 @@ Prismaを使うことで、データベース操作がTypeScriptの型システ�
     },
   ]);
 
-  const post3 = await prisma.post.upsert({
-    where: { id: 3 },
+  const post3 = await client.post.upsert({
+    where: { demoSeedKey: 'cms-demo:v1:mobile-trends' },
     update: {},
     create: {
+      demoSeedKey: 'cms-demo:v1:mobile-trends',
       title: 'モバイルアプリ開発の最新トレンド',
       content: `
 # モバイルアプリ開発の最新トレンド
@@ -263,10 +288,11 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
     },
   ]);
 
-  const post4 = await prisma.post.upsert({
-    where: { id: 4 },
+  const post4 = await client.post.upsert({
+    where: { demoSeedKey: 'cms-demo:v1:ui-design' },
     update: {},
     create: {
+      demoSeedKey: 'cms-demo:v1:ui-design',
       title: 'UIデザインのベストプラクティス',
       content: `
 # UIデザインのベストプラクティス
@@ -303,7 +329,6 @@ React NativeやFlutterなどのフレームワークを使ったクロスプラ�
   ]);
 
   console.log(`✅ ${4}件の投稿を作成しました`);
-  console.log('🎉 シード処理が完了しました!');
 }
 
 // シードスクリプトを実行
