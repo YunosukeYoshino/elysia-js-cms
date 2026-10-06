@@ -1,0 +1,10 @@
+FROM oven/bun:1.4.2
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates redis-server && rm -rf /var/lib/apt/lists/*
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --ignore-scripts
+COPY . .
+RUN bun prisma generate
+ENV NODE_ENV=test
+ENV REDIS_TEST_SERVER=/usr/bin/redis-server
+CMD ["bun", "run", "test:ci"]

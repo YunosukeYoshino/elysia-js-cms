@@ -1,385 +1,80 @@
-import type { Prisma } from '@prisma/client';
 import { Elysia, t } from 'elysia';
-import { parsePagination } from '../lib/pagination';
-import prisma from '../lib/prisma';
+import { parsePostId } from '../lib/post-search';
 import { authenticated, authMiddleware } from '../middlewares/auth';
+import { PostService, PostServiceError } from '../services/post-service';
 
-/**
- * 投稿関連のルーティング定義
- * @description 投稿の作成、取得、更新、削除を行うエンドポイント
- */
+const service: PostService = new PostService();
+
+/** 一覧・カテゴリ一覧に共通の検索クエリ定義。 */
+export const postSearchQuery = t.Object({
+  q: t.Optional(t.String({ maxLength: 200 })),
+  published: t.Optional(t.String()),
+  status: t.Optional(t.String()),
+  authorId: t.Optional(t.String()),
+  categoryId: t.Optional(t.String()),
+  categoryIds: t.Optional(t.String()),
+  tagIds: t.Optional(t.String()),
+  createdFrom: t.Optional(t.String()),
+  createdTo: t.Optional(t.String()),
+  sort: t.Optional(t.String()),
+  take: t.Optional(t.String()),
+  skip: t.Optional(t.String()),
+});
+
+const relatedFields = {
+  published: t.Optional(t.Boolean()),
+  scheduledAt: t.Optional(t.Union([t.String(), t.Null()])),
+  categoryIds: t.Optional(
+    t.Array(t.Integer({ minimum: 1, maximum: 2147483647 }), { maxItems: 20 }),
+  ),
+  tags: t.Optional(t.Array(t.String({ minLength: 1, maxLength: 50 }), { maxItems: 20 })),
+};
+
+function postId(value: string): number {
+  const id: number | null = parsePostId(value);
+  if (id === null) throw new PostServiceError(422, 'Invalid post ID');
+  return id;
+}
+
+/** 投稿の HTTP 入力・認証を扱い、業務処理はサービスに委譲する。 */
 export const postsRouter = new Elysia({ prefix: '/posts' })
   .use(authMiddleware)
-  // 全ての投稿を取得
-  .get(
-    '/',
-    async ({ query, set }) => {
-      const { published, authorId, categoryId } = query;
-      const page = parsePagination(query);
-      if (!page) {
-        set.status = 422;
-        return { error: 'Invalid pagination' };
-      }
-      const { take, skip } = page;
-
-      const whereClause: Prisma.PostWhereInput = {};
-
-      // 公開状態でフィルタリング
-      if (published !== undefined) {
-        whereClause.published = published === 'true';
-      }
-
-      // 著者IDでフィルタリング
-      if (authorId) {
-        whereClause.authorId = Number.parseInt(authorId as string, 10);
-      }
-
-      // カテゴリIDでフィルタリング
-      if (categoryId) {
-        whereClause.categories = {
-          some: {
-            categoryId: Number.parseInt(categoryId as string, 10),
-          },
-        };
-      }
-
-      const [posts, total] = await Promise.all([
-        prisma.post.findMany({
-          where: whereClause,
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            categories: {
-              include: {
-                category: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: take,
-          skip: skip,
-        }),
-        prisma.post.count({ where: whereClause }),
-      ]);
-
-      // カテゴリの形式を整える
-      const formattedPosts = posts.map((post) => ({
-        ...post,
-        categories: post.categories.map((c) => c.category),
-      }));
-
-      return {
-        data: formattedPosts,
-        meta: {
-          total,
-          skip: skip,
-          take: take,
-        },
-      };
+  .onError(({ error, set }) => {
+    if (error instanceof PostServiceError) {
+      set.status = error.status;
+      return { error: error.message };
+    }
+  })
+  .get('/', ({ query, user }) => service.list(query, user), {
+    query: postSearchQuery,
+    detail: {
+      tags: ['posts'],
+      summary: '投稿一覧・全文検索',
+      description:
+        'タイトル・本文を検索し、関連度・タグ・カテゴリ・UTC日付・公開状態で絞り込みます。非公開投稿は著者または管理者だけが参照できます。',
     },
-    {
-      query: t.Object({
-        published: t.Optional(t.String()),
-        authorId: t.Optional(t.String()),
-        categoryId: t.Optional(t.String()),
-        take: t.Optional(t.String()),
-        skip: t.Optional(t.String()),
-      }),
-      detail: {
-        tags: ['posts'],
-        summary: '投稿一覧の取得',
-        description: 'フィルタリングやページネーションオプション付きで投稿を取得します',
-      },
-    },
-  )
-  // IDで投稿を取得
-  .get(
-    '/:id',
-    async ({ params, set }) => {
-      const { id } = params;
-      const post = await prisma.post.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
-      });
-
-      if (!post) {
-        set.status = 404;
-        return { error: '投稿が見つかりません' };
-      }
-
-      // カテゴリの形式を整える
-      return {
-        ...post,
-        categories: post.categories.map((c) => c.category),
-      };
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      detail: {
-        tags: ['posts'],
-        summary: '投稿の詳細取得',
-        description: 'IDを指定して特定の投稿を取得します',
-      },
-    },
-  )
-  // 新しい投稿を作成
-  .post(
-    '/',
-    async ({ body, user, set }) => {
-      // 認証チェック
-      if (!user) {
-        set.status = 401;
-        return { error: '認証が必要です' };
-      }
-
-      const { title, content, published = false, categoryIds = [] } = body;
-
-      try {
-        const post = await prisma.post.create({
-          data: {
-            title,
-            content,
-            published,
-            authorId: user.id,
-            categories: {
-              create: categoryIds.map((categoryId: number) => ({
-                category: {
-                  connect: {
-                    id: categoryId,
-                  },
-                },
-              })),
-            },
-          },
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            categories: {
-              include: {
-                category: true,
-              },
-            },
-          },
-        });
-
-        // カテゴリの形式を整える
-        return {
-          ...post,
-          categories: post.categories.map((c) => c.category),
-        };
-      } catch (error) {
-        set.status = 400;
-        return { error: '投稿の作成に失敗しました', details: error };
-      }
-    },
-    {
-      body: t.Object({
-        title: t.String({ minLength: 1 }),
-        content: t.String(),
-        published: t.Optional(t.Boolean()),
-        categoryIds: t.Optional(t.Array(t.Number())),
-      }),
-      beforeHandle: [authenticated],
-      detail: {
-        tags: ['posts'],
-        summary: '新規投稿の作成',
-        description: '新しい投稿を作成します（認証が必要）',
-        security: [{ bearerAuth: [] }],
-      },
-    },
-  )
-  // 投稿を更新
-  .put(
-    '/:id',
-    async ({ params, body, user, set }) => {
-      // 認証チェック
-      if (!user) {
-        set.status = 401;
-        return { error: '認証が必要です' };
-      }
-
-      const { id } = params;
-      const { title, content, published, categoryIds } = body;
-
-      // 投稿の存在確認
-      const post = await prisma.post.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
-
-      if (!post) {
-        set.status = 404;
-        return { error: '投稿が見つかりません' };
-      }
-
-      // 権限チェック（管理者または投稿の作成者のみ更新可能）
-      if (Number(post.authorId) !== Number(user.id) && user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'この操作を行う権限がありません' };
-      }
-
-      try {
-        // トランザクション内で更新処理
-        const updatedPost = await prisma.$transaction(async (tx) => {
-          // 既存のカテゴリ関連を削除（もしカテゴリIDが提供されている場合）
-          if (categoryIds) {
-            await tx.categoryOnPost.deleteMany({
-              where: { postId: Number.parseInt(id, 10) },
-            });
-          }
-
-          // 投稿を更新
-          const updated = await tx.post.update({
-            where: { id: Number.parseInt(id, 10) },
-            data: {
-              title,
-              content,
-              published,
-              // カテゴリIDが提供されている場合は新たな関連を作成
-              ...(categoryIds && {
-                categories: {
-                  create: categoryIds.map((categoryId: number) => ({
-                    category: {
-                      connect: {
-                        id: categoryId,
-                      },
-                    },
-                  })),
-                },
-              }),
-            },
-            include: {
-              author: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-              categories: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          });
-
-          return updated;
-        });
-
-        // カテゴリの形式を整える
-        return {
-          ...updatedPost,
-          categories: updatedPost.categories.map((c) => c.category),
-        };
-      } catch (error) {
-        set.status = 400;
-        return { error: '投稿の更新に失敗しました', details: error };
-      }
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      body: t.Object({
-        title: t.Optional(t.String({ minLength: 1 })),
-        content: t.Optional(t.String()),
-        published: t.Optional(t.Boolean()),
-        categoryIds: t.Optional(t.Array(t.Number())),
-      }),
-      beforeHandle: [authenticated],
-      detail: {
-        tags: ['posts'],
-        summary: '投稿の更新',
-        description: '既存の投稿を更新します（認証と権限が必要）',
-        security: [{ bearerAuth: [] }],
-      },
-    },
-  )
-  // 投稿を削除
-  .delete(
-    '/:id',
-    async ({ params, user, set }) => {
-      // 認証チェック
-      if (!user) {
-        set.status = 401;
-        return { error: '認証が必要です' };
-      }
-
-      const { id } = params;
-
-      // 投稿の存在確認
-      const post = await prisma.post.findUnique({
-        where: { id: Number.parseInt(id, 10) },
-      });
-
-      if (!post) {
-        set.status = 404;
-        return { error: '投稿が見つかりません' };
-      }
-
-      // 権限チェック（管理者または投稿の作成者のみ削除可能）
-      if (Number(post.authorId) !== Number(user.id) && user.role !== 'admin') {
-        set.status = 403;
-        return { error: 'この操作を行う権限がありません' };
-      }
-
-      try {
-        // トランザクション内で削除処理
-        await prisma.$transaction(async (tx) => {
-          // 関連するカテゴリ関連を削除
-          await tx.categoryOnPost.deleteMany({
-            where: { postId: Number.parseInt(id, 10) },
-          });
-
-          // 投稿を削除
-          await tx.post.delete({
-            where: { id: Number.parseInt(id, 10) },
-          });
-        });
-
-        return { message: '投稿を削除しました' };
-      } catch (error) {
-        set.status = 400;
-        return { error: '投稿の削除に失敗しました', details: error };
-      }
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      beforeHandle: [authenticated],
-      detail: {
-        tags: ['posts'],
-        summary: '投稿の削除',
-        description: '投稿を削除します（認証と権限が必要）',
-        security: [{ bearerAuth: [] }],
-      },
-    },
-  );
+  })
+  .get('/:id', ({ params, user }) => service.getById(postId(params.id), user), {
+    params: t.Object({ id: t.String() }),
+    detail: { tags: ['posts'], summary: '投稿の詳細取得' },
+  })
+  .post('/', ({ body, user }) => service.create(body, user), {
+    body: t.Object({ title: t.String({ minLength: 1 }), content: t.String(), ...relatedFields }),
+    beforeHandle: [authenticated],
+    detail: { tags: ['posts'], summary: '新規投稿の作成', security: [{ bearerAuth: [] }] },
+  })
+  .put('/:id', ({ params, body, user }) => service.update(postId(params.id), body, user), {
+    params: t.Object({ id: t.String() }),
+    body: t.Object({
+      title: t.Optional(t.String({ minLength: 1 })),
+      content: t.Optional(t.String()),
+      ...relatedFields,
+    }),
+    beforeHandle: [authenticated],
+    detail: { tags: ['posts'], summary: '投稿の更新', security: [{ bearerAuth: [] }] },
+  })
+  .delete('/:id', ({ params, user }) => service.delete(postId(params.id), user), {
+    params: t.Object({ id: t.String() }),
+    beforeHandle: [authenticated],
+    detail: { tags: ['posts'], summary: '投稿の削除', security: [{ bearerAuth: [] }] },
+  });

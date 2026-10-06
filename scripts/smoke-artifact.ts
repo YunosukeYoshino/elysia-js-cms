@@ -10,6 +10,9 @@ const directory: string = await mkdtemp(join(tmpdir(), 'cms-artifact-'));
 const env = {
   ...process.env,
   NODE_ENV: 'test',
+  REDIS_URL: '',
+  RATE_LIMIT_POLICY: '',
+  PEPPER_SECRET: '',
   PORT: '0',
   JWT_SECRET: 'artifact-smoke-secret-at-least-32-characters',
   DATABASE_URL: `file:${join(directory, 'smoke.db')}`,

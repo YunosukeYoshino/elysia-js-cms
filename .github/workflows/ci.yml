@@ -42,20 +42,21 @@ jobs:
       - name: Run TypeScript Type Check
         run: bun run typecheck
 
-      - name: Setup Test Database
-        env:
-          DATABASE_URL: "file:./test.db"
-        run: bun run prepare-db:test
-
-      - name: Run Tests
-        env:
-          DATABASE_URL: "file:./test.db"
-        run: bun test
-
-      - name: Run Tests with Coverage
-        env:
-          DATABASE_URL: "file:./test.db"
-        run: bun test --coverage
+      - name: Run Isolated Tests and Service Coverage Gate
+        run: bun run test:ci
 
       - name: Build and Smoke Test Distribution
         run: bun run test:artifact
+
+  isolated-docker-tests:
+    name: Isolated Docker Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Run Disposable Database and Redis Suite
+        run: docker compose -f compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
+      - name: Remove Test Containers
+        if: always()
+        run: docker compose -f compose.test.yml down --volumes
