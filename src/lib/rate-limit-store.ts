@@ -1,4 +1,5 @@
-import Redis from 'ioredis';
+import type Redis from 'ioredis';
+import { createRedisClient, readyRedis } from './redis';
 /**
  * レート制限ストレージの抽象化
  * インメモリ（開発用）とRedis（本番用）バックエンドをサポート
@@ -36,8 +37,9 @@ export class MemoryRateLimitStore implements RateLimitStore {
   constructor(cleanupIntervalMs: number = 60000) {
     // 1分ごとに期限切れエントリをクリーンアップ
     this.cleanupInterval = setInterval(() => {
-      this.cleanup();
+      void this.cleanup();
     }, cleanupIntervalMs);
+    this.cleanupInterval.unref();
   }
 
   /** 時間窓の更新から加算まで await を挟まず、同時リクエストを直列化する。 */
@@ -151,14 +153,14 @@ export class RedisRateLimitStore implements RateLimitStore {
     private keyPrefix: string = 'rate_limit:',
   ) {}
 
-  private connect(): Redis {
-    if (!this.redis) this.redis = new Redis(this.redisUrl);
-    return this.redis;
+  private async connect(): Promise<Redis> {
+    if (!this.redis) this.redis = createRedisClient(this.redisUrl);
+    return readyRedis(this.redis);
   }
 
   /** 上限判定、加算、期限設定を単一のLuaスクリプトで実行する。 */
   async consume(key: string, max: number, windowMs: number): Promise<RateLimitResult> {
-    const redis: Redis = this.connect();
+    const redis: Redis = await this.connect();
     const result: unknown = await redis.eval(
       CONSUME_SCRIPT,
       1,
@@ -186,7 +188,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   }
 
   async get(key: string): Promise<RateLimitData | null> {
-    const redis = this.connect();
+    const redis = await this.connect();
 
     const fullKey = this.keyPrefix + key;
     const data = await redis.hmget(fullKey, 'count', 'resetTime');
@@ -208,7 +210,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   }
 
   async set(key: string, data: RateLimitData, ttlMs: number): Promise<void> {
-    const redis = this.connect();
+    const redis = await this.connect();
 
     const fullKey = this.keyPrefix + key;
     const ttlSeconds = Math.ceil(ttlMs / 1000);
@@ -221,7 +223,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   }
 
   async increment(key: string): Promise<number> {
-    const redis = this.connect();
+    const redis = await this.connect();
 
     const fullKey = this.keyPrefix + key;
     const newCount = await redis.hincrby(fullKey, 'count', 1);
@@ -230,7 +232,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   }
 
   async delete(key: string): Promise<void> {
-    const redis = this.connect();
+    const redis = await this.connect();
 
     const fullKey = this.keyPrefix + key;
     await redis.del(fullKey);
@@ -243,7 +245,7 @@ export class RedisRateLimitStore implements RateLimitStore {
 
   async destroy(): Promise<void> {
     if (this.redis) {
-      await this.redis.quit();
+      this.redis.disconnect();
       this.redis = null;
     }
   }
@@ -254,14 +256,11 @@ export class RedisRateLimitStore implements RateLimitStore {
  */
 export function createRateLimitStore(): RateLimitStore {
   const redisUrl = process.env.REDIS_URL;
-  const useRedis = process.env.NODE_ENV === 'production' && redisUrl;
+  const useRedis = redisUrl;
 
   if (useRedis) {
-    try {
-      return new RedisRateLimitStore(redisUrl);
-    } catch (_error) {
-      console.warn('⚠️  Redis unavailable, falling back to memory store');
-    }
+    // Redis障害時にサーバーごとの独立枠へ切り替えず、呼び出し元で拒否する。
+    return new RedisRateLimitStore(redisUrl);
   }
 
   return new MemoryRateLimitStore();
