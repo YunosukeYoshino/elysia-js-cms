@@ -4,6 +4,7 @@ import { Elysia } from 'elysia';
 import { authRouter } from './routes/auth';
 import { categoriesRouter } from './routes/categories';
 import { filesRouter } from './routes/files';
+import { interactionsRouter } from './routes/interactions';
 import { postsRouter } from './routes/posts';
 
 /**
@@ -24,6 +25,7 @@ const app = new Elysia()
           { name: 'posts', description: '投稿管理エンドポイント' },
           { name: 'categories', description: 'カテゴリ管理エンドポイント' },
           { name: 'files', description: 'ファイル管理エンドポイント' },
+          { name: 'interactions', description: 'コメント・リアクション・通知' },
         ],
       },
     }),
@@ -34,7 +36,12 @@ const app = new Elysia()
     () => 'ElysiaJS CMS API - お好みのツールでAPIを探索するには /swagger にアクセスしてください',
   )
   .group('/api', (app) =>
-    app.use(authRouter).use(postsRouter).use(categoriesRouter).use(filesRouter),
+    app
+      .use(authRouter)
+      .use(interactionsRouter)
+      .use(postsRouter)
+      .use(categoriesRouter)
+      .use(filesRouter),
   );
 
 if (import.meta.main) {
