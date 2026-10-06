@@ -190,13 +190,19 @@ use separate groups to isolate policies from sibling routes.
 
 ### デモシードの安全設定
 
-開発・テスト専用の公開デモです。破棄可能なローカルSQLiteを明示し、32文字以上の固定JWT_SECRET（未設定ならPEPPER_SECRET）を設定してください。本番では実行できません。
+開発・テスト専用の公開デモです。破棄可能なローカルSQLiteを明示し、32文字以上の固定JWT_SECRET（未設定・空白・サンプル値ならPEPPER_SECRET）を設定してください。公開済みのテスト用秘密値は使用できません。本番では実行できません。
 初期ログイン: admin@example.com / DemoRoot-Only42!、user@example.com / DemoUser-Only42!。既存ユーザーのパスワード・権限は変更しません。
 既存投稿のID衝突対策は未完了のため、既存コンテンツを含むDBには実行しないでください。
 
 ### 開発用パスワードのフォールバック
 
-開発・テストで秘密値が未設定の場合は、再起動後も照合できる固定の開発専用ペッパーを使います。本番で未設定の場合は引き続き停止します。永続的な環境では固定のJWT_SECRETまたはPEPPER_SECRETを設定してください。以前のランダムフォールバックで作られたローカルパスワードは自動復旧しません。
+- 公開フォールバックを許可するのは、NODE_ENV が明示的に development または test の場合だけです。bun run dev は development を設定するため、秘密値がないローカル開発でも再起動後に照合できます。NODE_ENV の未設定・空値・staging・未知の値・production では有効な固定秘密値が必須です。公開済みのサンプル値や開発用フォールバック文字列を秘密値に設定しても、この制限は解除されません。
+- 既存ハッシュとの互換性のため、有効な JWT_SECRET を PEPPER_SECRET より優先します。JWT_SECRET が未設定・空白・your-secret-key-for-jwt-tokens の場合は PEPPER_SECRET を使用します。実際の秘密値の前後の空白はハッシュとの互換性のため削除しません。
+- 以前 JWT_SECRET=your-secret-key-for-jwt-tokens と PEPPER_SECRET を併用した場合、PEPPER_SECRET は無視され、公開フォールバックでハッシュ化されていました。新規ハッシュには PEPPER_SECRET を使用します。旧ハッシュの追加照合は、このプレースホルダー設定を維持した明示的な development/test のみで行います。staging/production などでは決して照合しません。
+
+移行時は有効な JWT_SECRET と PEPPER_SECRET を無計画に変更しないでください。有効な JWT_SECRET が使われていた既存ハッシュはその値を維持すれば引き続き照合できます。JWT_SECRET を外して専用 PEPPER_SECRET に移す場合は、まず以前の JWT_SECRET と同じ値を PEPPER_SECRET に設定する必要があります。独立した値への変更や秘密値のローテーションには、元のパスワードからの再ハッシュまたは適切なパスワード再設定が必要です。
+
+公開フォールバックで作ったアカウントは本番へ持ち込まず、破棄可能なローカルDBを作り直すか、本人確認を伴う再設定で固定秘密値からハッシュを作り直してください。ハッシュ済みデータは平文移行用の migrate-passwords では変換できません。以前のランダムフォールバックで作られたパスワードも自動復旧しません。本番アプリの JWT_SECRET 必須チェックは別途維持され、PEPPER_SECRET の設定だけでは回避できません。
 
 ### ページ指定の検証
 
