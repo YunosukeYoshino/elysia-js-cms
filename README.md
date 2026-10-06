@@ -205,8 +205,10 @@ takeは符号付き10進整数、skipは0以上の10進整数です。安全整�
 ### ビルド配布物の検証
 
 `bun run test:artifact` はビルド後、ソースコードのない一時ディレクトリで
-`dist/index.js` を起動します。一時 SQLite DB を使い、HTTP 経由の認証、投稿一覧、
+`dist/` と実体コピーした `node_modules/` を配置し、`dist/index.js` を起動します。
+一時 SQLite DB を使い、HTTP 経由の認証、投稿一覧、
 画像アップロード・サムネイル生成・削除を検証します。既存 DB は変更しません。
 配布時は Bun、インストール済みの実行依存、生成済み Prisma Client とネイティブ依存
-（Sharp、Prisma エンジン）が必要です。`dist/` 単体の静的配信には対応していません。
+（Sharp、Prisma エンジン）が必要です。`@prisma/client` と `sharp` はバンドルせず、
+配布先の `node_modules/` から読み込みます。`dist/` 単体の静的配信には対応していません。
 CI は `.bun-version` のランタイムを使用し、型チェックとこの配布物テストも実行します。

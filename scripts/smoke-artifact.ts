@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { cp, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
@@ -18,7 +18,11 @@ let server: ReturnType<typeof Bun.spawn> | undefined;
 try {
   await mkdir(join(directory, 'dist'));
   await cp(join(root, 'dist'), join(directory, 'dist'), { recursive: true });
-  await symlink(join(root, 'node_modules'), join(directory, 'node_modules'), 'dir');
+  // シンボリックリンクも実体としてコピーし、実行時の依存解決を配布先で検証する。
+  await cp(join(root, 'node_modules'), join(directory, 'node_modules'), {
+    recursive: true,
+    dereference: true,
+  });
   const schema = Bun.spawnSync([process.execPath, 'prisma', 'db', 'push', '--skip-generate'], {
     cwd: root,
     env,
