@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test';
 import app from '../index';
 import prisma from '../lib/prisma';
+import { hierarchicalRateLimiter } from '../lib/rate-limit-policy';
 
 it('validates both post pagination routes before querying Prisma', async () => {
   await import('../scripts/prepare-db').then((m) => m.default('test'));
@@ -25,8 +26,11 @@ it('validates both post pagination routes before querying Prisma', async () => {
       `/api/posts?authorId=${user.id}&`,
       `/api/categories/${category.id}/posts?`,
     ]) {
-      const get = (query: Record<string, string> = {}): Promise<Response> =>
-        app.handle(new Request(`http://localhost${path}${new URLSearchParams(query)}`));
+      const get = async (query: Record<string, string> = {}): Promise<Response> => {
+        // 入力検証の各ケースは独立した時間窓として扱う。攻撃時の枠は別テストで検証する。
+        await hierarchicalRateLimiter.destroy();
+        return app.handle(new Request(`http://localhost${path}${new URLSearchParams(query)}`));
+      };
       const defaults = await get();
       expect(defaults.status).toBe(200);
       const initial = await defaults.json();

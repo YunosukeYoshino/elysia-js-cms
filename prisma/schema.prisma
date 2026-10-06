@@ -232,3 +232,8 @@ model InteractionLimit {
 
   @@id([userId, action])
 }
+
+model CacheRevision {
+  id      String @id
+  version BigInt @default(0)
+}
