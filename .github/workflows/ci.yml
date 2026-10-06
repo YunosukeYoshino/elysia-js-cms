@@ -17,13 +17,13 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
@@ -36,9 +36,11 @@ jobs:
       - name: Run Biome Format Check
         run: bun run check
 
-      # TypeScript type check is commented out due to Bun runtime compatibility issues
-      # - name: Run TypeScript Type Check
-      #   run: bun run typecheck
+      - name: Generate Prisma Client
+        run: bunx prisma generate
+
+      - name: Run TypeScript Type Check
+        run: bun run typecheck
 
       - name: Setup Test Database
         env:
@@ -54,3 +56,6 @@ jobs:
         env:
           DATABASE_URL: "file:./test.db"
         run: bun test --coverage
+
+      - name: Build and Smoke Test Distribution
+        run: bun run test:artifact
