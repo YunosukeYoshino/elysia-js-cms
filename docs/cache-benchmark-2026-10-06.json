@@ -1,0 +1,219 @@
+{
+  "date": "2026-10-06",
+  "scope": "Same-host Bun app.handle with verified JWT, SQLite indexed user metadata per request; local Redis7.2.5; interleaved3000 samples per variant plus200 warmup; three independent runs",
+  "runs": [
+    {
+      "samples": 3000,
+      "runtime": "1.4.2",
+      "database": "SQLite, one indexed user lookup per request (authoritative role/existence)",
+      "results": [
+        {
+          "name": "baselineDB",
+          "medianMs": 0.5822960000000421,
+          "p95Ms": 2.612728000000061,
+          "meanMs": 0.9029163246666637,
+          "medianDeltaPercent": 0,
+          "cache": null
+        },
+        {
+          "name": "warmMemory",
+          "medianMs": 0.5899149999995643,
+          "p95Ms": 2.8084439999993265,
+          "meanMs": 0.9509372383333293,
+          "medianDeltaPercent": 1.3084410676909464,
+          "cache": {
+            "hits": 3199,
+            "localHits": 3199,
+            "misses": 1,
+            "errors": 0,
+            "bypasses": 0,
+            "pendingInvalidations": 0,
+            "backend": "memory"
+          }
+        },
+        {
+          "name": "warmRedis",
+          "medianMs": 0.592596999998932,
+          "p95Ms": 2.7864550000003874,
+          "meanMs": 0.9389423589999931,
+          "medianDeltaPercent": 1.7690315576423643,
+          "cache": {
+            "hits": 3199,
+            "localHits": 3199,
+            "misses": 1,
+            "errors": 0,
+            "bypasses": 0,
+            "pendingInvalidations": 0,
+            "backend": "redis"
+          }
+        }
+      ],
+      "cold": [
+        {
+          "name": "coldMemory",
+          "medianMs": 1.0987509999995382,
+          "p95Ms": 4.246893999999884,
+          "meanMs": 1.695324239999918
+        },
+        {
+          "name": "coldRedis",
+          "medianMs": 2.4027159999986907,
+          "p95Ms": 6.925561000000016,
+          "meanMs": 3.001100839999981
+        }
+      ],
+      "boundedMemory": {
+        "attemptedEntries": 3000,
+        "entryCharacters": 16384,
+        "retained": {
+          "entries": 512,
+          "characters": 8388608
+        },
+        "approximateHeapDeltaBytes": 8549262
+      },
+      "note": "Local microbenchmark, not a production SLO. No flaky wallclock CI assertions."
+    },
+    {
+      "samples": 3000,
+      "runtime": "1.4.2",
+      "database": "SQLite, one indexed user lookup per request (authoritative role/existence)",
+      "results": [
+        {
+          "name": "baselineDB",
+          "medianMs": 0.5958700000001045,
+          "p95Ms": 2.904148000000532,
+          "meanMs": 1.0598806580000015,
+          "medianDeltaPercent": 0,
+          "cache": null
+        },
+        {
+          "name": "warmMemory",
+          "medianMs": 0.5878329999995913,
+          "p95Ms": 3.086338000000069,
+          "meanMs": 1.0378907066666645,
+          "medianDeltaPercent": -1.348784130852676,
+          "cache": {
+            "hits": 3199,
+            "localHits": 3199,
+            "misses": 1,
+            "errors": 0,
+            "bypasses": 0,
+            "pendingInvalidations": 0,
+            "backend": "memory"
+          }
+        },
+        {
+          "name": "warmRedis",
+          "medianMs": 0.5788970000003246,
+          "p95Ms": 3.0273010000000795,
+          "meanMs": 1.0413506246666553,
+          "medianDeltaPercent": -2.8484400959566503,
+          "cache": {
+            "hits": 3199,
+            "localHits": 3199,
+            "misses": 1,
+            "errors": 0,
+            "bypasses": 0,
+            "pendingInvalidations": 0,
+            "backend": "redis"
+          }
+        }
+      ],
+      "cold": [
+        {
+          "name": "coldMemory",
+          "medianMs": 1.1481710000007297,
+          "p95Ms": 3.727286000001186,
+          "meanMs": 1.5334323500000209
+        },
+        {
+          "name": "coldRedis",
+          "medianMs": 1.8456779999996797,
+          "p95Ms": 6.991249000000607,
+          "meanMs": 2.6093191699999623
+        }
+      ],
+      "boundedMemory": {
+        "attemptedEntries": 3000,
+        "entryCharacters": 16384,
+        "retained": {
+          "entries": 512,
+          "characters": 8388608
+        },
+        "approximateHeapDeltaBytes": 8546301
+      },
+      "note": "Local microbenchmark, not a production SLO. No flaky wallclock CI assertions."
+    },
+    {
+      "samples": 3000,
+      "runtime": "1.4.2",
+      "database": "SQLite, one indexed user lookup per request (authoritative role/existence)",
+      "results": [
+        {
+          "name": "baselineDB",
+          "medianMs": 0.6038459999999759,
+          "p95Ms": 2.8095800000000963,
+          "meanMs": 1.02567141199999,
+          "medianDeltaPercent": 0,
+          "cache": null
+        },
+        {
+          "name": "warmMemory",
+          "medianMs": 0.6178199999999379,
+          "p95Ms": 2.886831999999231,
+          "meanMs": 1.039515048333326,
+          "medianDeltaPercent": 2.314166194685807,
+          "cache": {
+            "hits": 3199,
+            "localHits": 3199,
+            "misses": 1,
+            "errors": 0,
+            "bypasses": 0,
+            "pendingInvalidations": 0,
+            "backend": "memory"
+          }
+        },
+        {
+          "name": "warmRedis",
+          "medianMs": 0.6152499999989232,
+          "p95Ms": 3.224170999999842,
+          "meanMs": 1.0557175629999982,
+          "medianDeltaPercent": 1.8885609905419098,
+          "cache": {
+            "hits": 3199,
+            "localHits": 3199,
+            "misses": 1,
+            "errors": 0,
+            "bypasses": 0,
+            "pendingInvalidations": 0,
+            "backend": "redis"
+          }
+        }
+      ],
+      "cold": [
+        {
+          "name": "coldMemory",
+          "medianMs": 1.126908000000185,
+          "p95Ms": 3.682570000000851,
+          "meanMs": 1.5746056400000816
+        },
+        {
+          "name": "coldRedis",
+          "medianMs": 1.625700999999026,
+          "p95Ms": 5.669748000000254,
+          "meanMs": 2.2066323700000066
+        }
+      ],
+      "boundedMemory": {
+        "attemptedEntries": 3000,
+        "entryCharacters": 16384,
+        "retained": {
+          "entries": 512,
+          "characters": 8388608
+        },
+        "approximateHeapDeltaBytes": 8548448
+      },
+      "note": "Local microbenchmark, not a production SLO. No flaky wallclock CI assertions."
+    }
+  ]
+}
