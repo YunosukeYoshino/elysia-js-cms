@@ -188,6 +188,17 @@ consume neither quota. The general API limiter is opt-in; it is not attached
 by default. A limiter plugin applies to its immediate consumer's routes;
 use separate groups to isolate policies from sibling routes.
 
+時間窓の更新・上限判定・加算はストアの `consume` で不可分に実行します。メモリ版は
+同一プロセス内、Redis版は同じキーを共有する複数プロセス間で上限を保証します。
+拒否したリクエストではカウントや期限を延長せず、Redis障害時に非アトミックな処理へ
+フォールバックしません。カスタムストアもアトミックな `consume` を実装してください。
+
+並列リクエストの回帰テストは `bun test src/tests/atomic-rate-limits.test.ts` で実行します。
+実RedisのLua・TTL・複数接続も検証する場合は、ローカルのテスト用Redisを起動し、
+`REDIS_TEST_URL=redis://127.0.0.1:6379 bun test src/tests/atomic-rate-limits.test.ts`
+を実行してください。専用のランダムなキープレフィックスを使い、終了時に削除します。
+`REDIS_TEST_URL` 未設定時はRedisの統合テストのみスキップします。
+
 ### デモシードの安全設定
 
 開発・テスト専用の公開デモです。破棄可能なローカルSQLiteを明示し、32文字以上の固定JWT_SECRET（未設定ならPEPPER_SECRET）を設定してください。本番では実行できません。

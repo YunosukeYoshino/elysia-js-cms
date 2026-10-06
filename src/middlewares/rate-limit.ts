@@ -8,7 +8,7 @@ import { Elysia } from 'elysia';
 import { extractClientIP, generateRateLimitKey, type RequestLike } from '../lib/network';
 import {
   createRateLimitStore,
-  type RateLimitData,
+  type RateLimitResult,
   type RateLimitStore,
 } from '../lib/rate-limit-store';
 
@@ -45,55 +45,9 @@ class RateLimiter {
     await this.store.destroy();
   }
 
-  async check(
-    request: RequestLike,
-  ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+  async check(request: RequestLike): Promise<RateLimitResult> {
     const key = this.options.keyGenerator(request);
-    const now = Date.now();
-
-    const existing = await this.store.get(key);
-
-    if (!existing || existing.resetTime <= now) {
-      const newData: RateLimitData = {
-        count: 1,
-        resetTime: now + this.options.windowMs,
-      };
-
-      await this.store.set(key, newData, this.options.windowMs);
-
-      return {
-        allowed: true,
-        remaining: this.options.max - 1,
-        resetTime: newData.resetTime,
-      };
-    }
-
-    if (existing.count >= this.options.max) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetTime: existing.resetTime,
-      };
-    }
-
-    try {
-      const newCount = await this.store.increment(key);
-      return {
-        allowed: true,
-        remaining: this.options.max - newCount,
-        resetTime: existing.resetTime,
-      };
-    } catch {
-      // Fallback to manual increment if store doesn't support atomic increment
-      existing.count++;
-      await this.store.set(key, existing, existing.resetTime - now);
-
-      return {
-        allowed: true,
-        remaining: this.options.max - existing.count,
-        resetTime: existing.resetTime,
-      };
-    }
+    return this.store.consume(key, this.options.max, this.options.windowMs);
   }
 
   get message(): string {
