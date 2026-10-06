@@ -11,6 +11,7 @@ model User {
   id                   Int            @id @default(autoincrement())
   email                String         @unique
   password             String
+  demoSeedKey          String?        @unique
   name                 String?
   role                 String         @default("user")
   loginAttempts        Int            @default(0)
@@ -25,15 +26,16 @@ model User {
 }
 
 model Post {
-  id         Int              @id @default(autoincrement())
-  title      String
-  content    String
-  published  Boolean          @default(false)
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  authorId   Int
-  categories CategoryOnPost[]
-  author     User             @relation(fields: [authorId], references: [id])
+  id          Int              @id @default(autoincrement())
+  title       String
+  content     String
+  published   Boolean          @default(false)
+  demoSeedKey String?          @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  authorId    Int
+  categories  CategoryOnPost[]
+  author      User             @relation(fields: [authorId], references: [id])
 }
 
 model Category {
