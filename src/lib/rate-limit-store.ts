@@ -9,7 +9,15 @@ export interface RateLimitData {
   resetTime: number;
 }
 
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetTime: number;
+}
+
 export interface RateLimitStore {
+  /** 時間窓の更新、上限判定、許可したリクエストの加算を不可分に実行する。 */
+  consume(key: string, max: number, windowMs: number): Promise<RateLimitResult>;
   get(key: string): Promise<RateLimitData | null>;
   set(key: string, data: RateLimitData, ttlMs: number): Promise<void>;
   increment(key: string): Promise<number>;
@@ -30,6 +38,25 @@ export class MemoryRateLimitStore implements RateLimitStore {
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, cleanupIntervalMs);
+  }
+
+  /** 時間窓の更新から加算まで await を挟まず、同時リクエストを直列化する。 */
+  async consume(key: string, max: number, windowMs: number): Promise<RateLimitResult> {
+    const now: number = Date.now();
+    let data: RateLimitData | undefined = this.store.get(key);
+    if (!data || data.resetTime <= now) {
+      data = { count: 0, resetTime: now + windowMs };
+      this.store.set(key, data);
+    }
+
+    const allowed: boolean = data.count < max;
+    if (allowed) data.count++;
+
+    return {
+      allowed,
+      remaining: Math.max(0, max - data.count),
+      resetTime: data.resetTime,
+    };
   }
 
   async get(key: string): Promise<RateLimitData | null> {
@@ -85,6 +112,33 @@ export class MemoryRateLimitStore implements RateLimitStore {
   }
 }
 
+// Redis側の時計と単一スクリプトで、複数プロセス間でも判定と加算を不可分にする。
+const CONSUME_SCRIPT: string = `
+local key = KEYS[1]
+local max = tonumber(ARGV[1])
+local windowMs = tonumber(ARGV[2])
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local data = redis.call('HMGET', key, 'count', 'resetTime')
+local count = tonumber(data[1])
+local resetTime = tonumber(data[2])
+
+if not count or not resetTime or resetTime <= now then
+  count = 0
+  resetTime = now + windowMs
+  redis.call('HSET', key, 'count', count, 'resetTime', resetTime)
+  redis.call('PEXPIREAT', key, resetTime)
+end
+
+local allowed = 0
+if count < max then
+  count = redis.call('HINCRBY', key, 'count', 1)
+  allowed = 1
+end
+
+return { allowed, math.max(0, max - count), resetTime }
+`;
+
 /**
  * Redisレート制限ストア（本番用）
  * redisパッケージのインストールが必要
@@ -100,6 +154,35 @@ export class RedisRateLimitStore implements RateLimitStore {
   private connect(): Redis {
     if (!this.redis) this.redis = new Redis(this.redisUrl);
     return this.redis;
+  }
+
+  /** 上限判定、加算、期限設定を単一のLuaスクリプトで実行する。 */
+  async consume(key: string, max: number, windowMs: number): Promise<RateLimitResult> {
+    const redis: Redis = this.connect();
+    const result: unknown = await redis.eval(
+      CONSUME_SCRIPT,
+      1,
+      this.keyPrefix + key,
+      max,
+      windowMs,
+    );
+    if (!Array.isArray(result) || result.length !== 3) {
+      throw new Error('Invalid rate limit response from Redis');
+    }
+
+    const [allowed, remaining, resetTime]: unknown[] = result;
+    if (
+      (allowed !== 0 && allowed !== 1) ||
+      typeof remaining !== 'number' ||
+      !Number.isSafeInteger(remaining) ||
+      remaining < 0 ||
+      typeof resetTime !== 'number' ||
+      !Number.isSafeInteger(resetTime)
+    ) {
+      throw new Error('Invalid rate limit response from Redis');
+    }
+
+    return { allowed: allowed === 1, remaining, resetTime };
   }
 
   async get(key: string): Promise<RateLimitData | null> {

@@ -188,6 +188,17 @@ consume neither quota. The general API limiter is opt-in; it is not attached
 by default. A limiter plugin applies to its immediate consumer's routes;
 use separate groups to isolate policies from sibling routes.
 
+時間窓の更新・上限判定・加算はストアの `consume` で不可分に実行します。メモリ版は
+同一プロセス内、Redis版は同じキーを共有する複数プロセス間で上限を保証します。
+拒否したリクエストではカウントや期限を延長せず、Redis障害時に非アトミックな処理へ
+フォールバックしません。カスタムストアもアトミックな `consume` を実装してください。
+
+並列リクエストの回帰テストは `bun test src/tests/atomic-rate-limits.test.ts` で実行します。
+実RedisのLua・TTL・複数接続も検証する場合は、ローカルのテスト用Redisを起動し、
+`REDIS_TEST_URL=redis://127.0.0.1:6379 bun test src/tests/atomic-rate-limits.test.ts`
+を実行してください。専用のランダムなキープレフィックスを使い、終了時に削除します。
+`REDIS_TEST_URL` 未設定時はRedisの統合テストのみスキップします。
+
 ### デモシードの安全設定
 
 開発・テスト専用の公開デモです。破棄可能なローカルSQLiteを明示し、32文字以上の固定JWT_SECRET（未設定・空白・サンプル値ならPEPPER_SECRET）を設定してください。公開済みのテスト用秘密値は使用できません。本番では実行できません。
@@ -207,3 +218,14 @@ use separate groups to isolate policies from sibling routes.
 ### ページ指定の検証
 
 takeは符号付き10進整数、skipは0以上の10進整数です。安全整数範囲外・小数・空値・不正な文字列は422で拒否します。省略時の10/0、take=0、負のtakeによる逆順取得は維持します。
+
+### ビルド配布物の検証
+
+`bun run test:artifact` はビルド後、ソースコードのない一時ディレクトリで
+`dist/` と実体コピーした `node_modules/` を配置し、`dist/index.js` を起動します。
+一時 SQLite DB を使い、HTTP 経由の認証、投稿一覧、
+画像アップロード・サムネイル生成・削除を検証します。既存 DB は変更しません。
+配布時は Bun、インストール済みの実行依存、生成済み Prisma Client とネイティブ依存
+（Sharp、Prisma エンジン）が必要です。`@prisma/client` と `sharp` はバンドルせず、
+配布先の `node_modules/` から読み込みます。`dist/` 単体の静的配信には対応していません。
+CI は `.bun-version` のランタイムを使用し、型チェックとこの配布物テストも実行します。
