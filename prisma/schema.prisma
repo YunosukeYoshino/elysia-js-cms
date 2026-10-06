@@ -8,36 +8,50 @@ datasource db {
 }
 
 model User {
-  id                   Int            @id @default(autoincrement())
-  email                String         @unique
+  id                   Int                @id @default(autoincrement())
+  email                String             @unique
   password             String
-  demoSeedKey          String?        @unique
+  demoSeedKey          String?            @unique
   name                 String?
-  role                 String         @default("user")
-  loginAttempts        Int            @default(0)
+  role                 String             @default("user")
+  loginAttempts        Int                @default(0)
   lockedUntil          DateTime?
   passwordResetToken   String?
   passwordResetExpires DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
   files                File[]
   posts                Post[]
   refreshTokens        RefreshToken[]
+  comments             Comment[]
+  reactions            Reaction[]
+  bookmarks            Bookmark[]
+  views                PostView[]
+  notifications        Notification[]     @relation("ReceivedNotifications")
+  sentNotifications    Notification[]     @relation("SentNotifications")
+  followers            Follow[]           @relation("UserFollowers")
+  following            Follow[]           @relation("UserFollowing")
+  interactionLimits    InteractionLimit[]
 }
 
 model Post {
-  id          Int              @id @default(autoincrement())
-  title       String
-  content     String
-  published   Boolean          @default(false)
-  demoSeedKey String?          @unique
-  scheduledAt DateTime?
-  tags        TagOnPost[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  authorId    Int
-  categories  CategoryOnPost[]
-  author      User             @relation(fields: [authorId], references: [id])
+  id            Int              @id @default(autoincrement())
+  title         String
+  content       String
+  published     Boolean          @default(false)
+  demoSeedKey   String?          @unique
+  scheduledAt   DateTime?
+  tags          TagOnPost[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  authorId      Int
+  categories    CategoryOnPost[]
+  author        User             @relation(fields: [authorId], references: [id])
+  comments      Comment[]
+  reactions     Reaction[]
+  bookmarks     Bookmark[]
+  views         PostView[]
+  notifications Notification[]
 
   @@index([published, createdAt, id])
   @@index([scheduledAt])
@@ -104,4 +118,117 @@ model TagOnPost {
 
   @@id([postId, tagId])
   @@index([tagId, postId])
+}
+
+model Comment {
+  id            Int            @id @default(autoincrement())
+  content       String
+  status        String         @default("pending")
+  revision      Int            @default(1)
+  depth         Int            @default(0)
+  deletedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  authorId      Int
+  postId        Int
+  parentId      Int?
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent        Comment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]      @relation("CommentReplies")
+  reactions     Reaction[]
+  notifications Notification[]
+
+  @@index([postId, parentId, status, createdAt, id])
+  @@index([status, deletedAt, createdAt, id])
+  @@index([authorId, createdAt])
+  @@index([parentId])
+}
+
+model Reaction {
+  id        Int      @id @default(autoincrement())
+  type      String
+  createdAt DateTime @default(now())
+  userId    Int
+  postId    Int?
+  commentId Int?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId, type])
+  @@unique([userId, commentId, type])
+  @@index([postId, type])
+  @@index([commentId, type])
+}
+
+model Bookmark {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  userId    Int
+  postId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId, createdAt, id])
+  @@index([postId])
+}
+
+model Follow {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  followerId  Int
+  followingId Int
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId, createdAt, id])
+  @@index([followerId, createdAt, id])
+}
+
+model PostView {
+  id        Int      @id @default(autoincrement())
+  day       String
+  createdAt DateTime @default(now())
+  userId    Int
+  postId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId, day])
+  @@index([postId, createdAt])
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  eventKey    String   @unique
+  type        String
+  content     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  recipientId Int
+  senderId    Int?
+  postId      Int?
+  commentId   Int?
+  recipient   User     @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender      User?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment     Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, read, createdAt, id])
+  @@index([postId])
+  @@index([commentId])
+  @@index([senderId])
+}
+
+model InteractionLimit {
+  userId  Int
+  action  String
+  count   Int
+  resetAt DateTime
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, action])
 }
