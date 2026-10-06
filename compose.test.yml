@@ -1,0 +1,27 @@
+# 既存 DB・アップロード領域・認証情報をマウントしない使い捨てテスト環境。
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      NODE_ENV: test
+      REDIS_TEST_URL: redis://redis:6379
+      JWT_SECRET: isolated-test-jwt-secret-at-least-32-characters
+      PEPPER_SECRET: isolated-test-pepper-secret-at-least-32-characters
+    tmpfs:
+      - /tmp
+    init: true
+    depends_on:
+      redis:
+        condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 1s
+      retries: 20
+    tmpfs:
+      - /data

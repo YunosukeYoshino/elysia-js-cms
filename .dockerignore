@@ -1,0 +1,10 @@
+.git
+node_modules
+uploads
+test-uploads
+coverage
+dist
+.env*
+*.db
+*.sqlite*
+prisma/*.db
