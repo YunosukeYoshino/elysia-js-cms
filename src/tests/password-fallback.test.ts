@@ -76,3 +76,67 @@ it('preserves configured-secret precedence instead of the fallback', () => {
     expect(result.stdout.toString().trim()).toBe(expected);
   }
 });
+
+it('uses PEPPER_SECRET for new hashes when JWT_SECRET is a placeholder', () => {
+  const key: string = 'configured-independent-pepper-for-regression';
+  const env: NodeJS.ProcessEnv = {
+    ...base,
+    JWT_SECRET: 'your-secret-key-for-jwt-tokens',
+    PEPPER_SECRET: key,
+  };
+  const first = run(hashCode, env);
+  expect(first.exitCode).toBe(0);
+  const hash: string = first.stdout.toString().trim();
+  const result = run(
+    "console.log(await Bun.password.verify('DevCheck42-Only'+process.env.PEPPER_SECRET,process.env.FIXTURE_HASH.slice(7)),await Bun.password.verify('DevCheck42-Onlydev-fallback-pepper-for-local-testing-only',process.env.FIXTURE_HASH.slice(7)));",
+    { ...env, FIXTURE_HASH: hash },
+  );
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString().trim()).toBe('true false');
+  for (const mode of ['development', 'test', 'staging', 'production', '']) {
+    const verified = run(
+      "import {verifyPassword} from './src/lib/password'; console.log(await verifyPassword('DevCheck42-Only',process.env.FIXTURE_HASH));",
+      { ...env, NODE_ENV: mode, FIXTURE_HASH: hash },
+    );
+    expect(verified.exitCode).toBe(0);
+    expect(verified.stdout.toString().trim()).toBe('true');
+  }
+});
+
+it('keeps formerly masked local hashes valid without accepting public hashes in deployed modes', () => {
+  const legacy = run(
+    "console.log('bun:v1:'+await Bun.password.hash('DevCheck42-Onlydev-fallback-pepper-for-local-testing-only',{algorithm:'argon2id',memoryCost:19456,timeCost:2}));",
+  );
+  expect(legacy.exitCode).toBe(0);
+  const hash: string = legacy.stdout.toString().trim();
+  for (const mode of ['development', 'test', 'staging', 'production', '']) {
+    const env: NodeJS.ProcessEnv = {
+      ...base,
+      NODE_ENV: mode,
+      JWT_SECRET: 'your-secret-key-for-jwt-tokens',
+      PEPPER_SECRET: 'configured-independent-pepper-for-regression',
+      FIXTURE_HASH: hash,
+    };
+    const verified = run(
+      "import {verifyPassword} from './src/lib/password'; console.log(await verifyPassword('DevCheck42-Only',process.env.FIXTURE_HASH),await verifyPassword('incorrect',process.env.FIXTURE_HASH));",
+      env,
+    );
+    expect(verified.exitCode).toBe(0);
+    expect(verified.stdout.toString().trim()).toBe(
+      mode === 'development' || mode === 'test' ? 'true false' : 'false false',
+    );
+  }
+});
+
+it('fails closed when non-local modes have no configured password secret', () => {
+  for (const mode of ['staging', 'production', '']) {
+    const env: NodeJS.ProcessEnv = { ...base, NODE_ENV: mode };
+    expect(run(hashCode, env).exitCode).not.toBe(0);
+    const verified = run(
+      "import {verifyPassword} from './src/lib/password'; console.log(await verifyPassword('DevCheck42-Only','bun:v1:invalid'));",
+      env,
+    );
+    expect(verified.exitCode).toBe(0);
+    expect(verified.stdout.toString().trim()).toBe('false');
+  }
+});

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { getPasswordPepper, getPasswordVerificationPeppers } from './pepper-config';
 
 /**
  * ElysiaJS + Bun 現代的パスワードハッシュ化ユーティリティ
@@ -28,26 +29,6 @@ const PASSWORD_MAX_LENGTH = 128;
 const TOKEN_LENGTH = 32;
 
 /**
- * アプリケーション固有のペッパー取得
- * 環境変数から秘密鍵を取得してペッパーソルトとして使用
- * レインボーテーブル攻撃を防ぐための追加セキュリティレイヤー
- */
-function getPepper(): string {
-  const pepper = process.env.JWT_SECRET || process.env.PEPPER_SECRET;
-  if (!pepper || pepper === 'your-secret-key-for-jwt-tokens') {
-    console.warn('⚠️  JWT_SECRET が初期値のままです。本番環境では強力な秘密鍵を設定してください。');
-    return process.env.NODE_ENV === 'production'
-      ? (() => {
-          throw new Error(
-            '本番環境でJWT_SECRET環境変数が設定されていません。セキュリティのため必須です。',
-          );
-        })()
-      : 'dev-fallback-pepper-for-local-testing-only';
-  }
-  return pepper;
-}
-
-/**
  * 暗号学的に安全なランダムトークン生成
  * セッション、CSRF、API キーなどに使用
  */
@@ -73,7 +54,7 @@ export async function hashPassword(password: string): Promise<{ hash: string; ve
     }
 
     // ペッパーソルト適用
-    const pepper = getPepper();
+    const pepper = getPasswordPepper();
     const pepperedPassword = password + pepper;
 
     // Bun のネイティブ Argon2id ハッシュ化
@@ -110,10 +91,10 @@ export async function verifyPassword(password: string, hashedPassword: string): 
     // 新しい Bun バージョン対応
     if (hashedPassword.startsWith('bun:v1:')) {
       const actualHash = hashedPassword.replace('bun:v1:', '');
-      const pepper = getPepper();
-      const pepperedPassword = password + pepper;
-
-      return await Bun.password.verify(pepperedPassword, actualHash);
+      for (const pepper of getPasswordVerificationPeppers()) {
+        if (await Bun.password.verify(password + pepper, actualHash)) return true;
+      }
+      return false;
     }
 
     // レガシー PBKDF2 対応 (v2 形式)

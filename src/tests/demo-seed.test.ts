@@ -24,7 +24,6 @@ for (const patch of [
   { DATABASE_URL: 'file:?mode=memory' },
   { JWT_SECRET: '' },
   { JWT_SECRET: ' '.repeat(40) },
-  { JWT_SECRET: 'your-secret-key-for-jwt-tokens', PEPPER_SECRET: secret },
   { JWT_SECRET: 'default-secret-for-testing-please-change-in-prod' },
 ] as NodeJS.ProcessEnv[]) {
   it(`rejects unsafe seed configuration: ${Object.keys(patch).join(',')}`, () => {
@@ -38,6 +37,13 @@ it('allows only explicit local development or test seed settings', () => {
       ...valid,
       NODE_ENV: 'development',
       JWT_SECRET: '',
+      PEPPER_SECRET: secret,
+    }),
+  ).not.toThrow();
+  expect(() =>
+    assertDemoSeedEnvironment({
+      ...valid,
+      JWT_SECRET: 'your-secret-key-for-jwt-tokens',
       PEPPER_SECRET: secret,
     }),
   ).not.toThrow();
