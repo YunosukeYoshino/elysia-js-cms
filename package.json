@@ -20,7 +20,8 @@
     "prepare-db:dev": "bun src/scripts/prepare-db.ts development",
     "prepare-db:test": "NODE_ENV=test bun src/scripts/prepare-db.ts test",
     "prepare": "husky",
-    "pre-commit": "lint-staged && bun test"
+    "pre-commit": "lint-staged && bun test",
+    "test:artifact": "bun run build && bun scripts/smoke-artifact.ts"
   },
   "lint-staged": {
     "*.{js,ts}": [
