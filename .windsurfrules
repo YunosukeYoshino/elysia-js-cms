@@ -1,8 +1,0 @@
-# Windsurf Rules
-
-**注意**: 本リポジトリのルールセットは `GLOBAL_RULES.md` に集約されています。
-AI機能（Vibe Codingなど）を使用する際は、必ず `GLOBAL_RULES.md` の指示に従ってください。
-
----
-**Note**: The ruleset for this repository is consolidated in `GLOBAL_RULES.md`.
-When using AI features (like Vibe Coding), you MUST follow the instructions in `GLOBAL_RULES.md`.

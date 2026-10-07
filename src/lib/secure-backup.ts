@@ -26,6 +26,32 @@ interface SecureBackupData<T = Record<string, unknown>> {
   data: T[];
 }
 
+type BackupValidation = { valid: true; metadata: BackupMetadata } | { valid: false; error: string };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isBackupMetadata(value: unknown): value is BackupMetadata {
+  return (
+    isRecord(value) &&
+    typeof value.timestamp === 'string' &&
+    typeof value.version === 'string' &&
+    typeof value.encrypted === 'boolean' &&
+    typeof value.includesPasswords === 'boolean' &&
+    typeof value.recordCount === 'number'
+  );
+}
+
+function isSecureBackupData(value: unknown): value is SecureBackupData {
+  return (
+    isRecord(value) &&
+    isBackupMetadata(value.metadata) &&
+    Array.isArray(value.data) &&
+    value.data.every(isRecord)
+  );
+}
+
 /**
  * バックアップ用の安全な暗号化キーを生成
  *
@@ -129,7 +155,10 @@ export async function restoreSecureBackup(
     jsonData = fileContent;
   }
 
-  const backupData = JSON.parse(jsonData) as SecureBackupData;
+  const backupData: unknown = JSON.parse(jsonData);
+  if (!isSecureBackupData(backupData)) {
+    throw new Error('Invalid backup structure');
+  }
 
   console.log(`📂 Backup restored from: ${backupPath}`);
   console.log(`🕒 Created: ${backupData.metadata.timestamp}`);
@@ -189,14 +218,13 @@ async function encryptBackup(data: string, key: string): Promise<string> {
  */
 async function decryptBackup(encryptedData: string, key: string): Promise<string> {
   const algorithm = 'aes-256-cbc';
-  const parts = encryptedData.split(':');
+  const [ivHex, encrypted, ...rest] = encryptedData.split(':');
 
-  if (parts.length !== 2) {
+  if (ivHex === undefined || encrypted === undefined || rest.length > 0) {
     throw new Error('Invalid encrypted backup format');
   }
 
-  const iv = Buffer.from(parts[0], 'hex');
-  const encrypted = parts[1];
+  const iv = Buffer.from(ivHex, 'hex');
 
   // 入力文字列から適切なキーを作成
   const keyBuffer =
@@ -222,14 +250,10 @@ async function decryptBackup(encryptedData: string, key: string): Promise<string
 export async function validateBackup(
   backupPath: string,
   encryptionKey?: string,
-): Promise<{ valid: boolean; metadata?: BackupMetadata; error?: string }> {
+): Promise<BackupValidation> {
   try {
+    // 構造の検証は restoreSecureBackup が行う
     const backupData = await restoreSecureBackup(backupPath, encryptionKey);
-
-    // 基本的な検証
-    if (!backupData.metadata || !Array.isArray(backupData.data)) {
-      return { valid: false, error: 'Invalid backup structure' };
-    }
 
     if (backupData.data.length !== backupData.metadata.recordCount) {
       return {

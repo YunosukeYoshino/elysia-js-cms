@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { mkdtemp, readdir, rm, unlink } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { jwt } from '@elysiajs/jwt';
@@ -8,7 +8,12 @@ import sharp from 'sharp';
 import { getJwtSecret } from '../lib/jwt-config';
 import prisma from '../lib/prisma';
 import { MemoryRateLimitStore } from '../lib/rate-limit-store';
-import { createSecureBackup, restoreSecureBackup } from '../lib/secure-backup';
+import {
+  createSecureBackup,
+  generateBackupKey,
+  restoreSecureBackup,
+  validateBackup,
+} from '../lib/secure-backup';
 import { createRateLimit } from '../middlewares/rate-limit';
 import { filesRouter } from '../routes/files';
 
@@ -31,6 +36,45 @@ it('redacts backup passwords without mutating input records', async () => {
     expect((await restoreSecureBackup(path)).data).toEqual(
       records.map((record) => ({ ...record })),
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it('rejects backups whose parsed structure is not a valid backup', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'cms-backup-test-'));
+  try {
+    const path = join(directory, 'backup.json');
+    for (const content of [
+      '{"data":[]}',
+      '{"metadata":{"timestamp":1,"version":"1.0","encrypted":false,"includesPasswords":false,"recordCount":0},"data":[]}',
+      '{"metadata":{"timestamp":"t","version":"1.0","encrypted":false,"includesPasswords":false,"recordCount":1},"data":[1]}',
+    ]) {
+      await writeFile(path, content);
+      await expect(restoreSecureBackup(path)).rejects.toThrow('Invalid backup structure');
+      expect(await validateBackup(path)).toEqual({
+        valid: false,
+        error: 'Invalid backup structure',
+      });
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it('restores encrypted backups and rejects malformed ciphertext', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'cms-backup-test-'));
+  try {
+    const path = join(directory, 'backup.enc');
+    const key = generateBackupKey();
+    await createSecureBackup([{ id: 1 }], { encryptionKey: key, backupPath: path });
+    expect(await validateBackup(path, key)).toMatchObject({ valid: true });
+    for (const content of ['no-separator', 'a:b:c']) {
+      await writeFile(path, content);
+      await expect(restoreSecureBackup(path, key)).rejects.toThrow(
+        'Invalid encrypted backup format',
+      );
+    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

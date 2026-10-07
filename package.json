@@ -26,10 +26,7 @@
     "test:integration": "bun test src/tests/integration"
   },
   "lint-staged": {
-    "*.{js,ts}": [
-      "biome check --write .",
-      "biome format --write"
-    ]
+    "*.{js,ts}": "biome check --write --no-errors-on-unmatched"
   },
   "keywords": [
     "elysiajs",
